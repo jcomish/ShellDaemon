@@ -402,3 +402,11 @@ bool areStringsValid(char *** commands)
     
     return true;
 }
+
+void clearBuffer(char * buf){
+    int i;
+    for (i = strlen(buf); i > 0; i--)
+    {
+        buf[i] = '\0';
+    }
+}

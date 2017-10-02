@@ -52,8 +52,7 @@ static void sig_chld(int signo) {
     //printf("signal(SIGCHLD) error");
 }
 
-void setupSignals()
-{
+void setupSignals(){
     if (signal(SIGINT, sig_int) == SIG_ERR)
         if (ISDEBUG){printf("signal(SIGINT) error");}
     if (signal(SIGTSTP, sig_tstp) == SIG_ERR)
@@ -63,8 +62,7 @@ void setupSignals()
 
 }
 
-bool isBackgroundProcess(int pid)
-{
+bool isBackgroundProcess(int pid){
     int i;
     for (i = 0; i < *jobSize; i++)
     {
@@ -79,8 +77,7 @@ bool isBackgroundProcess(int pid)
     return false;
 }
 
-void redirectInput(char ***commands, int inputRedirectIndex)
-{
+void redirectInput(char ***commands, int inputRedirectIndex){
     //REQUIREMENT: < will replace stdin with the file that is the next token
     if (ISDEBUG){printf("DEBUG: Redirecting Input to %s\n", commands[inputRedirectIndex + 1][0]);}
     int in = open(commands[inputRedirectIndex + 1][0], O_RDONLY);
@@ -99,8 +96,7 @@ void redirectInput(char ***commands, int inputRedirectIndex)
     }
 }
 
-void redirectOutput(char ***commands, int outputRedirectIndex)
-{
+void redirectOutput(char ***commands, int outputRedirectIndex){
     //REQUIREMENT: > will replace stdout with the file that is the next token
     //REQUIREMENT: with creation of files if they don't exist for output redirection
     if (ISDEBUG){printf("DEBUG: Redirecting Output to %s\n", commands[outputRedirectIndex + 1][0]);}
@@ -109,8 +105,7 @@ void redirectOutput(char ***commands, int outputRedirectIndex)
     close(out);
 }
 
-int getForeGroundPid()
-{
+int getForeGroundPid(){
     int i;
     int currentPid = -1;
     for (i = 1; i <= *jobSize; i++)
@@ -124,8 +119,7 @@ int getForeGroundPid()
     return currentPid;
 }
 
-int getLatestStoppedProcessId()
-{
+int getLatestStoppedProcessId(){
     int i;
     int currentLargestValue = 0;
     int currentPid = -1;
@@ -142,8 +136,7 @@ int getLatestStoppedProcessId()
     return currentPid;
 }
 
-int getCurrentProcessId()
-{
+int getCurrentProcessId(){
     int i;
     int currentLargestValue = 0;
     int currentPid = -1;
@@ -159,8 +152,7 @@ int getCurrentProcessId()
     return currentPid;
 }
 
-int getLatestJobNo()
-{
+int getLatestJobNo(){
     int i;
     int currentLargestValue = 1;
     
@@ -181,8 +173,7 @@ int getLatestJobNo()
     return currentLargestValue;
 }
 
-int findJobIndex(int pid)
-{
+int findJobIndex(int pid){
     int i;
     for (i = 1; i <= *jobSize; i++)
     {
@@ -193,8 +184,7 @@ int findJobIndex(int pid)
     return -1;
 }
 
-void writeToJobTable(char * userInput, int pgid, int pid, bool fg)
-{
+void writeToJobTable(char * userInput, int pgid, int pid, bool fg){
     int jobNo = getLatestJobNo() + 1;
     processJobTable[jobNo].pid = pid;
     processJobTable[jobNo].pgid = pgid;
@@ -224,8 +214,7 @@ void writeToJobTable(char * userInput, int pgid, int pid, bool fg)
     return;
 }
 
-void printJob(struct Job job, int i)
-{
+void printJob(struct Job job, int i){
     if (strcmp(job.status, "Stopped") == 0 || strcmp(job.status, "Running") == 0)
     {
         printf("[%d] %c %s   %s", i, job.ground, job.status, job.command);
@@ -235,8 +224,7 @@ void printJob(struct Job job, int i)
     return;
 }
 
-void printJobTable()
-{
+void printJobTable(){
     int i;
     
     for (i = 1; i < (*jobSize) + 1; i++)
@@ -246,8 +234,7 @@ void printJobTable()
     return;
 }
 
-bool isShellProcess(char ***commands)
-{
+bool isShellProcess(char ***commands){
     int fgIndex = containsCommand(commands, "fg");
     int bgIndex = containsCommand(commands, "bg");
     int jobsIndex = containsCommand(commands, "jobs");
@@ -354,8 +341,7 @@ bool isShellProcess(char ***commands)
     return false;
 }
 
-void signalHandler(int pidToHandle)
-{
+void signalHandler(int pidToHandle){
     int jobIndex = findJobIndex(pidToHandle);
     if (WIFEXITED(status)) 
         {
@@ -393,8 +379,7 @@ void signalHandler(int pidToHandle)
         }
 }
 
-void waitForSignals(int pipeIndex, int backgroundIndex)
-{
+void waitForSignals(int pipeIndex, int backgroundIndex){
     //REQUIREMENT: Background a job using &
     if (backgroundIndex == -1)
     {
@@ -412,8 +397,7 @@ void waitForSignals(int pipeIndex, int backgroundIndex)
     return;
 }
 
-int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTable, int * pJobSize, char * userInput, bool pISDEBUG)
-{
+int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTable, int * pJobSize, char * userInput, bool pISDEBUG){
     if (signal(SIGINT, SIG_DFL) == SIG_ERR)
         if (ISDEBUG){printf("signal(SIGINT) error");}
     if (signal(SIGTSTP, SIG_DFL) == SIG_ERR)

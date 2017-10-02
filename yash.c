@@ -13,28 +13,16 @@
 
 #include "input.h"
 
-
-
-/*
-typedef struct Job {
-    int pid;
-    int pgid;
-    int jobNo;
-    char ground;
-    char status [20];
-    char command[250];
-};
-*/
 int sd;
 int status;
 pid_t shell_pgid;
-//struct Job jobTable[200];
 int * jobSize;
 char * daemonIp;
 bool ISDEBUG;
+char userInput[250];
+bool isSignalSent;
 
-bool sendCommand(char * commandString)
-{
+bool sendCommand(char * commandString){
     send(sd, commandString, strlen(commandString), 0 );
     return true;
 }
@@ -44,28 +32,28 @@ static void sig_handler(int signo) {
       case SIGINT:
       {
           sendCommand("CTL c\n");
-          break;
+          clearBuffer(userInput);
+          isSignalSent = true;
+          return;
       }
       case SIGTSTP:
       {
           sendCommand("CTL z\n");
-          break;
+          clearBuffer(userInput);
+          isSignalSent = true;
+          return;
       }
   }
-
 }
 
-void setupSignals()
-{
+void setupSignals(){
     if (signal(SIGINT, sig_handler) == SIG_ERR)
     printf("signal(SIGINT) error");
   if (signal(SIGTSTP, sig_handler) == SIG_ERR)
     printf("signal(SIGTSTP) error");
-
 }
 
-void openSocket()
-{
+void openSocket(){
      struct  sockaddr_in server;
      struct hostent *hp;
     
@@ -75,21 +63,17 @@ void openSocket()
      hp = gethostbyname(daemonIp);
      bcopy ( hp->h_addr, &(server.sin_addr.s_addr), hp->h_length);
      server.sin_port = 3826;
-     connect(sd, (struct  sockaddr *) &server, sizeof(server));
+     
+     if (connect(sd, (struct  sockaddr *) &server, sizeof(server)) == -1)
+     {
+         printf("Socket failed to connect\n");
+     }
     
      send(sd, "Connection successfully established", 36, 0 );
-     
-/*
-     char buf[7];
-     int cc;
-     cc=recv(sd,buf,7, 0);
-     printf("%s\n", buf);
-*/
-     
 }
 
-char * combineCommands(char *** commandList)
-{
+/*
+char * combineCommands(char *** commandList){
     char *commandReturn = malloc (sizeof(char) * 300);
     int commandSize = 0;
     
@@ -127,20 +111,9 @@ char * combineCommands(char *** commandList)
     commandReturn[commandSize] = '\0';
     return commandReturn;
 }
+*/
 
-int main(int argc, char **argv)
-{
-    int i;
-    ISDEBUG = false;
-    
-    for (i = 0; i < argc; ++i)
-    {
-        if (strcmp(argv[i], "-d") == 0)
-        {
-            ISDEBUG = true;
-        }
-    }
-    
+int main(int argc, char **argv){
     if (argc > 1)
     {
         if (argv[1][0] != '-')
@@ -158,62 +131,25 @@ int main(int argc, char **argv)
     setupSignals();
     openSocket();
     
-
     while(!feof(stdin))	
     {
-        char userInput[250];
-        
         recv(sd,buf,sizeof(buf), 0);
         printf("%s ", buf);
         
-       
         fgets(userInput, 250, stdin);
         //need this to immediately terminate
-        if (feof(stdin))
-        {
+        //printf("%d\n", isSignalSent);
+        if (feof(stdin)){ 
             break;
         }
-
-        if (handleError(validateInput(userInput)))
-        {
-            char **stringList;
-            trimInput(userInput, ISDEBUG);
-            stringList = splitInput(userInput, ISDEBUG);
-
-            char ***commandList = splitIntoCommands(stringList, ISDEBUG);
-            if (ISDEBUG){printCommands(commandList);}
-
-            if (validateStringAmnt(stringList))
-            {
-                if (sendCommand(combineCommands(commandList)))
-                {
-                    //printf("ERROR: Invalid Command");
-                }  
-            }
-            else
-            {
-                printf("INVALID INPUT: You are allowed up to 1 pipeline (2 commands), 1 IO redirect, and cannot background a pipeline.");
-            }
-
-
-            int i;
-            for (i = 0; stringList[i] != '\0'; i++)
-            {
-                stringList[i] = "\0";
-            }
-
-            freeCommandList(commandList);
-
-        }   
-        int i;
-        for (i = 0; userInput[i] != '\0'; i++)
-        {
-            userInput[i] = '\0';
-        }       
-        i++;
+        
+        
+        
+        sendCommand(userInput);
+        clearBuffer(userInput);
     }
-
-    sendCommand("CTL d\n");
+    
+    close(sd);
+    printf("\n");
     exit(0);
 }
-

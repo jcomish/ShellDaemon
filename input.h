@@ -19,6 +19,7 @@ bool containsCharacter(char *args, char character);
 void freeCString(char *string);
 void freeArgs(char ** string);
 void freeCommandList(char *** commandList);
+void clearBuffer(char * buf);
 
 
 #endif	/* INPUT_H */
