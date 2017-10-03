@@ -37,6 +37,26 @@ int threadsIndex = 0;
 int sd, psd;
 struct sockaddr_in server;
 
+
+typedef struct Job {
+    int pid;
+    int pgid;
+    int jobNo;
+    char ground;
+    char status [20];
+    char command[250];
+};
+
+int status;
+pid_t shell_pgid;
+struct Job jobTable[200];
+int * yashSize;
+int ** jobSize;
+
+
+
+
+
 void clearBuffer(char * buf);
 
 void reusePort(int s){
@@ -124,69 +144,49 @@ void logCommand(char * userInput, int threadID){
     fclose(log);
 }
 
-int processUserInput(char * userInput)
+int processUserInput(char * userInput, int * test)
 {
-    userInput = malloc(200 * sizeof(char));
-    userInput = "Command Recieved\0";
-/*
-    while(!feof(stdin))	
+    bool ISDEBUG = false;
+    
+
+    if (handleError(validateInput(userInput)))
     {
-        char userInput[250];
-        
-        recv(sd,buf,sizeof(buf), 0);
-        printf("%s ", buf);
-        
-       
-        fgets(userInput, 250, stdin);
-        //need this to immediately terminate
-        if (feof(stdin))
+        char **stringList;
+        trimInput(userInput, ISDEBUG);
+        stringList = splitInput(userInput, ISDEBUG);
+
+        char ***commandList = splitIntoCommands(stringList, ISDEBUG);
+        if (ISDEBUG){printCommands(commandList);}
+
+        if (validateStringAmnt(stringList))
         {
-            break;
+            if (processCommands(commandList, shell_pgid, jobTable, test, userInput, ISDEBUG) == -1)
+            {
+                printf("ERROR: Invalid Command\n");
+            }
+        }
+        else
+        {
+            printf("INVALID INPUT: You are allowed up to 1 pipeline (2 commands), 1 IO redirect, and cannot background a pipeline.");
         }
 
-        if (handleError(validateInput(userInput)))
-        {
-            char **stringList;
-            trimInput(userInput, ISDEBUG);
-            stringList = splitInput(userInput, ISDEBUG);
-
-            char ***commandList = splitIntoCommands(stringList, ISDEBUG);
-            if (ISDEBUG){printCommands(commandList);}
-
-            if (validateStringAmnt(stringList))
-            {
-                if (sendCommand(combineCommands(commandList)))
-                {
-                    //printf("ERROR: Invalid Command");
-                }  
-            }
-            else
-            {
-                printf("INVALID INPUT: You are allowed up to 1 pipeline (2 commands), 1 IO redirect, and cannot background a pipeline.");
-            }
-
-
-            int i;
-            for (i = 0; stringList[i] != '\0'; i++)
-            {
-                stringList[i] = "\0";
-            }
-
-            freeCommandList(commandList);
-
-        }   
         int i;
-        for (i = 0; userInput[i] != '\0'; i++)
+        for (i = 0; stringList[i] != '\0'; i++)
         {
-            userInput[i] = '\0';
-        }       
-        i++;
-    }
+            stringList[i] = "\0";
+        }
 
-    //sendCommand("CTL d\n");
-    close(sd);
-    exit(0);
- */
+        freeCommandList(commandList);
+
+    }   
+    int i;
+    for (i = 0; userInput[i] != '\0'; i++)
+    {
+        userInput[i] = '\0';
+    }       
+    i++;
+
+
     return 200;
 }
 
@@ -201,6 +201,9 @@ void *processThread(void *arg) {
     //send initial #\n
     printf("%s\n", userInput);
     send(thr_data[threadID].psd, "#", 3, 0 );
+    int jobSizeVar = 0;
+    int *test;
+    test = &jobSizeVar;
 
     while(true) 
     {
@@ -215,12 +218,14 @@ void *processThread(void *arg) {
         
         //process command here
         char * response = malloc(200 * sizeof(char));
-        int responseSize = processUserInput(userInput);
-        //printf("%s\n", response);
+        int responseSize = processUserInput(userInput, test);
+        
+        signal(SIGINT, SIG_DFL) == SIG_ERR;
 
         send(thr_data[threadID].psd, "Command Response", 16, 0);
         send(thr_data[threadID].psd, "\n#", 3, 0 );
         clearBuffer(userInput);
+        jobSizeVar++;
     }
     
     return;
@@ -260,11 +265,14 @@ void setupSocket(){
 
 int main(int argc, char** argv) {
     setupSocket();
-    
+    shell_pgid = getpid();
     //TODO: Daemonize
     //int daemon = fork();
     //if (daemon > 0)
     //{
+    int yashSizeVar = 0;
+    yashSize = &yashSizeVar;
+    
         for (;;)
         {
             listen(sd,1);
@@ -280,6 +288,7 @@ int main(int argc, char** argv) {
 
             spawnThread();
             threadsIndex++;
+            yashSizeVar++;
         }
     //}
     //else

@@ -288,6 +288,7 @@ bool isToken(char command)
 
 int countArgs(char **args)
 {
+    printf("test\n");
     int argCount;
     for (argCount = 0; args[argCount] != '\0'; argCount++){ continue; }
     

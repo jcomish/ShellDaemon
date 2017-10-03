@@ -123,6 +123,7 @@ int getLatestStoppedProcessId(){
     int i;
     int currentLargestValue = 0;
     int currentPid = -1;
+
     for (i = 1; i <= *jobSize; i++)
     {
         if (processJobTable[i].ground == '-' &&
@@ -241,7 +242,6 @@ bool isShellProcess(char ***commands){
     int jobPid;
     int jobIndex;
 
-    
     if (fgIndex == 0 && countArgs(commands[0]) == 2)
     {
         if (containsCharacter(commands[0][1], '%'))
@@ -418,7 +418,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
     //REQUIREMENT: and finally the original command
     strcpy(processJobTable[0].command, "Shell");
 
-    
+
     //REQUIREMENT: Background a job using &
     while (1)
     {
@@ -445,6 +445,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
         }
         
         pid_ch1 = fork();
+        
         if (pid_ch1 > 0)
         {
             if (pipeIndex == -1)
@@ -461,6 +462,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
                 dup2(stdouttemp, 1);
                 close(stdouttemp);
 
+                
                 return 0;
 
             }
@@ -493,6 +495,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
                 }
                 else 
                 {
+                    
                     //REQUIREMENT: The right command will have 
                     //stdin replaced with the output from the same pipe
                     setpgid(0,pid_ch1);
