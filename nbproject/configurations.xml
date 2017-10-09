@@ -4,6 +4,8 @@
     <df name="yash" root=".">
       <in>input.c</in>
       <in>input.h</in>
+      <in>logger.c</in>
+      <in>logger.h</in>
       <in>loop.c</in>
       <in>oldYash.c</in>
       <in>process.c</in>

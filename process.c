@@ -397,6 +397,23 @@ void waitForSignals(int pipeIndex, int backgroundIndex){
     return;
 }
 
+int redirectOutputToVariable(int * pipefd2, char * response)
+{
+    clearBuffer(response);
+                
+    close(pipefd2[1]);  // close the write end of the pipe in the parent
+    while (read(pipefd2[0], response, 10000) != 0)
+    {
+    }
+
+    dup2(stdintemp, 0);
+    close(stdintemp);
+    dup2(stdouttemp, 1);
+    close(stdouttemp);
+
+    return countBufferSize(response);
+}
+
 int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTable, int * pJobSize, char * userInput, char * response, bool pISDEBUG){
     if (signal(SIGINT, SIG_DFL) == SIG_ERR)
         if (ISDEBUG){printf("signal(SIGINT) error");}
@@ -432,6 +449,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
     int pipeIndex = containsCommand(commands, "|");
     int backgroundIndex = containsCommand(commands, "&");
     
+    printf("pipe index: %d\n", pipeIndex);
     if (!isShellProcess(commands))
     {
         if (pipeIndex != -1)
@@ -451,20 +469,17 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
         
         if (pid_ch1 > 0)
         {
-            if (inputRedirectIndex == -1 && outputRedirectIndex == -1)
+            if (outputRedirectIndex == -1)
             {
                 clearBuffer(response);
                 
                 close(pipefd2[1]);  // close the write end of the pipe in the parent
-                while (read(pipefd2[0], response, 5000) != 0)
+                while (read(pipefd2[0], response, 10000) != 0)
                 {
                 }
+
                 
-                dup2(stdintemp, 0);
-                close(stdintemp);
-                dup2(stdouttemp, 1);
-                close(stdouttemp);
-                
+
                 return countBufferSize(response);
             }
             
@@ -560,7 +575,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
 
             pgid = setsid();
             
-            if (inputRedirectIndex == -1 && outputRedirectIndex == -1 && pipeIndex == -1)
+            if (outputRedirectIndex == -1)
             {
                 close(pipefd2[0]);    // close reading end in the child
 

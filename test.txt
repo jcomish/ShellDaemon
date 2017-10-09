@@ -1,17 +1,23 @@
-command.txt
-copy.txt
-echo.txt
-input.c
-input.h
-loop
-loop.c
-Makefile
-nbproject
-oldYash.c
-process.c
-process.h
-test.txt
-yash
-yash.c
-yashd
-yashd.c
+total 196
+drwxrwxr-x 4 parallels parallels  4096 Oct  9 15:49 .
+drwxrwxr-x 7 parallels parallels  4096 Sep 22 20:47 ..
+-rwxrwxrwx 1 parallels parallels     7 Sep 14 17:02 command.txt
+-rwxrwxrwx 1 parallels parallels   424 Sep 30 01:22 copy.txt
+-rwxrwxrwx 1 parallels parallels    15 Sep 10 08:40 echo.txt
+drwxrwxr-x 8 parallels parallels  4096 Oct  8 23:03 .git
+-rwxrwxr-x 1 parallels parallels  9435 Oct  9 15:39 input.c
+-rwxrwxr-x 1 parallels parallels   941 Oct  8 17:13 input.h
+-rw-rw-r-- 1 parallels parallels  3921 Oct  9 15:30 logger.c
+-rw-rw-r-- 1 parallels parallels   224 Oct  9 12:10 logger.h
+-rwxrwxrwx 1 parallels parallels  8621 Sep 15 14:10 loop
+-rwxrwxrwx 1 parallels parallels   283 Sep 15 14:09 loop.c
+-rwxrwxrwx 1 parallels parallels   309 Oct  9 02:38 Makefile
+drwxrwxrwx 3 parallels parallels  4096 Sep 15 16:24 nbproject
+-rwxrwxrwx 1 parallels parallels  3619 Sep 16 23:13 oldYash.c
+-rwxrwxr-x 1 parallels parallels 17020 Oct  9 15:49 process.c
+-rwxrwxr-x 1 parallels parallels   353 Oct  8 17:03 process.h
+-rw-rw---- 1 parallels parallels     0 Oct  9 15:50 test.txt
+-rwxrwxr-x 1 parallels parallels 26732 Oct  9 15:49 yash
+-rw-rw-r-- 1 parallels parallels  2486 Oct  9 13:36 yash.c
+-rwxrwxr-x 1 parallels parallels 52599 Oct  9 15:49 yashd
+-rw-rw-r-- 1 parallels parallels  9818 Oct  9 15:49 yashd.c

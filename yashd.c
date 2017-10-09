@@ -12,10 +12,29 @@
 #include <netdb.h>
 
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/file.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/un.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <errno.h>
+
+
 #include <pthread.h>
 
 #include "input.h"
 #include "process.h"
+#include "logger.h"
 
 #define NUM_THREADS 25
 
@@ -49,15 +68,32 @@ typedef struct Job {
 
 int status;
 pid_t shell_pgid;
+pid_t daemon_pid;
 struct Job jobTable[200];
 int * yashSize;
 int ** jobSize;
 
-
-
-
-
 void clearBuffer(char * buf);
+
+/*For Logging*/
+void sig_pipe(int n) 
+{
+   perror("Broken pipe signal");
+}
+
+void sig_chld(int n)
+{
+  int status;
+
+  fprintf(stderr, "Child terminated\n");
+  wait(&status); /* So no zombies */
+}
+/*For Logging*/
+
+/*For Jobs*/
+
+/*For Jobs*/
+
 
 void reusePort(int s){
     int one=1;
@@ -67,30 +103,6 @@ void reusePort(int s){
 	    exit(-1);
 	}
 }   
-
-char * getTime(){
-    time_t timer;
-    struct tm* tm_info;
-
-    time(&timer);
-    tm_info = localtime(&timer);
-
-    int month = tm_info->tm_mon;
-    int day = tm_info->tm_mday;
-    int hour = tm_info->tm_hour;
-    int minutes = tm_info->tm_min;
-    int seconds = tm_info->tm_sec;
-    
-    char *dateTime = malloc(sizeof(char) * 40);
-    
-    char *months[12] = {
-       "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-       "Jul", "Aug", "Sept", "Oct", "Nov", "Dec" };
-    
-    snprintf(dateTime, sizeof(char) * 40, "%s %d %d:%d:%d", months[month], day, hour, minutes, seconds);
-
-    return dateTime;
-}
 
 int trimProtocolInput(char *userInput){
     int status;
@@ -125,38 +137,19 @@ int trimProtocolInput(char *userInput){
     }
 }
 
-void logCommand(char * userInput, int threadID){
-    char *date = getTime();
-    FILE *log = fopen("/tmp/yashd.log", "a");
-    if (log == NULL)
-    {
-        printf("Error! can't open log file.");
-        return -1;
-    }
-    
-    printf("%s yashd[%s:%d]: %s\n", date, thr_data[threadID].ip, thr_data[threadID].port, userInput);
-    fprintf(log, "%s yashd[%s:%d]: %s\n", date, thr_data[threadID].ip, thr_data[threadID].port, userInput);
-    clearBuffer(date);
-    free(date);
-    
-    fclose(log);
-}
-
 int processUserInput(char * userInput, char * response, int * test)
 {
     bool ISDEBUG = false;
     int commandCount = 0;
-    printf("userInput: %s\n", userInput);
     
     if (handleError(validateInput(userInput)))
     {
         char **stringList;
         trimInput(userInput, ISDEBUG);
         stringList = splitInput(userInput, ISDEBUG);
-        
 
         char ***commandList = splitIntoCommands(stringList, ISDEBUG);
-        if (ISDEBUG){printCommands(commandList);}
+        
         
         if (validateStringAmnt(stringList))
         {
@@ -207,12 +200,22 @@ void *processThread(void *arg) {
     while(true) 
     {
         clearBuffer(userInput);
+        //logMessage("before");
         cc=recv(thr_data[threadID].psd,userInput,sizeof(userInput), 0);
-            if (cc == 0 || cc == -1) return;
+            if (cc == 0) 
+            {
+                logCommand("Closing Connection", thr_data[threadID].ip, thr_data[threadID].port, 4);
+                return;
+            }
+            else if (cc == -1)
+            {
+                return;
+            }
         userInput[cc] = '\0';
+        //logMessage("after");
         
         int commandStatus = trimProtocolInput(userInput);
-        logCommand(userInput, threadID);
+        logCommand(userInput, thr_data[threadID].ip, thr_data[threadID].port, 3);
         
         if (commandStatus == 1)
         {
@@ -220,7 +223,6 @@ void *processThread(void *arg) {
             char * response = malloc(10000 * sizeof(char));
 
             int responseSize = processUserInput(userInput, response, test);
-
             signal(SIGINT, SIG_DFL) == SIG_ERR;
 
             send(thr_data[threadID].psd, response, responseSize, 0);
@@ -234,7 +236,7 @@ void *processThread(void *arg) {
             //Need to kill/stop currently running process
             if (userInput == "c")
             {
-                
+                //kill(getForeGroundPid(),SIGINT);
             }
             else if (userInput == "z")
             {
@@ -248,7 +250,6 @@ void *processThread(void *arg) {
             send(thr_data[threadID].psd, "yashd: Failed to process command!", 35, 0);
             send(thr_data[threadID].psd, "\n#", 3, 0 );
             clearBuffer(userInput);
-
         }
     }
     
@@ -287,38 +288,135 @@ void setupSocket(){
     }
 }
 
-int main(int argc, char** argv) {
+void listenLoop()
+{
     setupSocket();
     shell_pgid = getpid();
-    //TODO: Daemonize
-    //int daemon = fork();
-    //if (daemon > 0)
-    //{
+    runLogger();
+
     int yashSizeVar = 0;
     yashSize = &yashSizeVar;
     
-        for (;;)
-        {
-            listen(sd,1);
-            psd = accept(sd, 0, 0);
+    while (true)
+    {
+        listen(sd,1);
+        psd = accept(sd, 0, 0);
 
-            struct sockaddr_in addr;
-            socklen_t addr_size = sizeof(struct sockaddr_in);
-            int res = getpeername(psd, (struct sockaddr *)&addr, &addr_size);
+        struct sockaddr_in addr;
+        socklen_t addr_size = sizeof(struct sockaddr_in);
+        int res = getpeername(psd, (struct sockaddr *)&addr, &addr_size);
 
-            thr_data[threadsIndex].ip = malloc(20 * sizeof(char));
-            thr_data[threadsIndex].ip = inet_ntoa(addr.sin_addr);
-            thr_data[threadsIndex].port = addr.sin_port;
+        thr_data[threadsIndex].ip = malloc(20 * sizeof(char));
+        thr_data[threadsIndex].ip = inet_ntoa(addr.sin_addr);
+        thr_data[threadsIndex].port = addr.sin_port;
+        
+        logCommand("Connection Established", thr_data[threadsIndex].ip, thr_data[threadsIndex].port, 4);
 
-            spawnThread();
-            threadsIndex++;
-            yashSizeVar++;
-        }
-    //}
-    //else
-    //{
-        return 0;
-    //}
+        spawnThread();
+        threadsIndex++;
+        yashSizeVar++;
+    }
+    return;
+}
+
+/*This is largely derived from the daemon_init method in u-echod.c example file*/
+void initDaemon()
+{
+/*
+    pid_t daemon_pid;
+    int fd;
+    int i;
+    static FILE *log;
+    char buf[256];
+    
+    
+    #define PATHMAX 255
+    static char u_server_path[PATHMAX+1] = "/tmp/yashd"; 
+    static char u_socket_path[PATHMAX+1];
+    static char u_log_path[PATHMAX+1];
+    static char u_pid_path[PATHMAX+1];
+
+    strcpy(u_socket_path, u_server_path);
+    strcpy(u_pid_path, u_server_path);
+    strncat(u_pid_path, ".pid", PATHMAX-strlen(u_pid_path));
+    strcpy(u_log_path, u_server_path);
+    strncat(u_log_path, ".log", PATHMAX-strlen(u_log_path));
+    
+    
+    //1. fork the Daemon, close the parent
+    daemon_pid = fork();
+    if ( ( daemon_pid = fork() ) < 0 ) {
+        perror("daemon_init: cannot fork");
+        exit(EXIT_SUCCESS);
+    } 
+    else if (daemon_pid > 0)
+        
+        exit(EXIT_SUCCESS);
+    
+    //2. Close File Descriptors
+    for (i = getdtablesize()-1; i>0; i--)
+      close(i);
+    
+    //3. Detatch From Controlling Terminal
+    if (setsid() < 0)
+        exit(EXIT_FAILURE);
+    else
+    {
+        daemon_pid = getpid();
+        setpgrp();
+    }
+    
+    //4. Move to a safe directory
+    chdir(u_server_path);
+    
+    //5. Reset STDIO 0,1 to /dev/null
+    if ( (fd = open("/dev/null", O_RDWR)) < 0) {
+    perror("Open");
+    exit(0);
+    }
+    dup2(fd, STDIN_FILENO);
+    dup2(fd, STDOUT_FILENO);
+    close (fd);
+    
+    //6. Make sure only one copy of daemon exists
+    if ( ( i = open(u_pid_path, O_RDWR | O_CREAT, 0666) ) < 0 )
+        exit(1);
+    if ( lockf(i, F_TLOCK, 0) != 0)
+        exit(0);
+    
+    //7. Write PID of daemon to file
+    sprintf(buf, "%6d", daemon_pid);
+    write(i, buf, strlen(buf));
+    
+    //8. Establish Signal Handlers
+    if ( signal(SIGCHLD, sig_chld) < 0 ) {
+        perror("Signal SIGCHLD");
+        exit(1);
+    }
+    if ( signal(SIGPIPE, sig_pipe) < 0 ) {
+        perror("Signal SIGPIPE");
+        exit(1);
+    }
+    
+    //9. Set umask
+    umask(0);
+    
+    //10. Take STDERR and dup to a logfile
+    log = fopen("/tmp/yashd.log", "aw");
+    fd = fileno(log);
+    dup2(fd, STDERR_FILENO);
+    close (fd);
+*/
+    
+    listenLoop();
+    return;
+}
+
+int main(int argc, char** argv) {
+    printf("Starting yashd...\n");
+    initDaemon();
+    
+    return 0;
 }
 
 

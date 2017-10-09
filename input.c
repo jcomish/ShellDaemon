@@ -390,7 +390,7 @@ char *** splitIntoCommands(char **strings, bool ISDEBUG)
     {
         command[j] = '\0';
     }
-    
+
     return returnCommands;
 }
 
@@ -406,7 +406,7 @@ bool areStringsValid(char *** commands)
 
 void clearBuffer(char * buf){
     int i;
-    for (i = strlen(buf); i > 0; i--)
+    for (i = strlen(buf); i >= 0; i--)
     {
         buf[i] = '\0';
     }
