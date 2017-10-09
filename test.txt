@@ -1,0 +1,17 @@
+command.txt
+copy.txt
+echo.txt
+input.c
+input.h
+loop
+loop.c
+Makefile
+nbproject
+oldYash.c
+process.c
+process.h
+test.txt
+yash
+yash.c
+yashd
+yashd.c

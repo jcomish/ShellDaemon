@@ -411,3 +411,13 @@ void clearBuffer(char * buf){
         buf[i] = '\0';
     }
 }
+
+int countBufferSize(char * buf)
+{
+    int i;
+    for (i = 0; buf[i] != '\0'; i++)
+    {
+        
+    }
+    return i;
+}

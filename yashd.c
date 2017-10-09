@@ -144,23 +144,25 @@ void logCommand(char * userInput, int threadID){
     fclose(log);
 }
 
-int processUserInput(char * userInput, int * test)
+int processUserInput(char * userInput, char * response, int * test)
 {
     bool ISDEBUG = false;
-    
+    int commandCount = 0;
 
     if (handleError(validateInput(userInput)))
     {
         char **stringList;
         trimInput(userInput, ISDEBUG);
         stringList = splitInput(userInput, ISDEBUG);
+        
 
         char ***commandList = splitIntoCommands(stringList, ISDEBUG);
         if (ISDEBUG){printCommands(commandList);}
-
+        
         if (validateStringAmnt(stringList))
         {
-            if (processCommands(commandList, shell_pgid, jobTable, test, userInput, ISDEBUG) == -1)
+            commandCount = processCommands(commandList, shell_pgid, jobTable, test, userInput, response, ISDEBUG);
+            if (commandCount == -1)
             {
                 printf("ERROR: Invalid Command\n");
             }
@@ -186,8 +188,8 @@ int processUserInput(char * userInput, int * test)
     }       
     i++;
 
-
-    return 200;
+    printf("count: %d\n", commandCount);
+    return commandCount;
 }
 
 void *processThread(void *arg) {
@@ -217,14 +219,18 @@ void *processThread(void *arg) {
         logCommand(userInput, threadID);
         
         //process command here
-        char * response = malloc(200 * sizeof(char));
-        int responseSize = processUserInput(userInput, test);
+        char * response = malloc(10000 * sizeof(char));
+
+        int responseSize = processUserInput(userInput, response, test);
+        
+        //printf(response);
         
         signal(SIGINT, SIG_DFL) == SIG_ERR;
 
-        send(thr_data[threadID].psd, "Command Response", 16, 0);
+        send(thr_data[threadID].psd, response, responseSize, 0);
         send(thr_data[threadID].psd, "\n#", 3, 0 );
         clearBuffer(userInput);
+        clearBuffer(response);
         jobSizeVar++;
     }
     

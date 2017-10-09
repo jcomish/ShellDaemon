@@ -20,6 +20,7 @@ void freeCString(char *string);
 void freeArgs(char ** string);
 void freeCommandList(char *** commandList);
 void clearBuffer(char * buf);
+int countBufferSize(char * buf);
 
 
 #endif	/* INPUT_H */

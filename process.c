@@ -397,7 +397,7 @@ void waitForSignals(int pipeIndex, int backgroundIndex){
     return;
 }
 
-int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTable, int * pJobSize, char * userInput, bool pISDEBUG){
+int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTable, int * pJobSize, char * userInput, char * response, bool pISDEBUG){
     if (signal(SIGINT, SIG_DFL) == SIG_ERR)
         if (ISDEBUG){printf("signal(SIGINT) error");}
     if (signal(SIGTSTP, SIG_DFL) == SIG_ERR)
@@ -444,10 +444,30 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
             }
         }
         
+        int pipefd2[2];
+        pipe(pipefd2);
+        
         pid_ch1 = fork();
         
         if (pid_ch1 > 0)
         {
+            if (inputRedirectIndex == -1 && outputRedirectIndex == -1)
+            {
+                clearBuffer(response);
+                
+                close(pipefd2[1]);  // close the write end of the pipe in the parent
+                while (read(pipefd2[0], response, 5000) != 0)
+                {
+                }
+                
+                dup2(stdintemp, 0);
+                close(stdintemp);
+                dup2(stdouttemp, 1);
+                close(stdouttemp);
+                
+                return countBufferSize(response);
+            }
+            
             if (pipeIndex == -1)
             {
                 setupSignals(ISDEBUG);
@@ -539,6 +559,18 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
             }
 
             pgid = setsid();
+            
+            if (inputRedirectIndex == -1 && outputRedirectIndex == -1 && pipeIndex == -1)
+            {
+                close(pipefd2[0]);    // close reading end in the child
+
+                dup2(pipefd2[1], 1);  // send stdout to the pipe
+                dup2(pipefd2[1], 2);  // send stderr to the pipe
+
+                close(pipefd2[1]);    // this descriptor is no longer needed
+            }
+
+                    
             if (execvp(commands[0][0], commands[0]) != 0)
             {
                 return -1;
