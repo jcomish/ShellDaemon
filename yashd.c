@@ -137,7 +137,7 @@ int trimProtocolInput(char *userInput){
     }
 }
 
-int processUserInput(char * userInput, char * response, int * test)
+int processUserInput(char * userInput, char * response, int * test, int ephThreadsIndex)
 {
     bool ISDEBUG = false;
     int commandCount = 0;
@@ -153,7 +153,8 @@ int processUserInput(char * userInput, char * response, int * test)
         
         if (validateStringAmnt(stringList))
         {
-            commandCount = processCommands(commandList, shell_pgid, jobTable, test, userInput, response, ISDEBUG);
+            commandCount = processCommands(commandList, shell_pgid, jobTable, test, 
+                    userInput, response, thr_data[ephThreadsIndex].psd, ISDEBUG);
             if (commandCount == -1)
             {
                 printf("ERROR: Invalid Command\n");
@@ -187,6 +188,8 @@ void *processThread(void *arg) {
     char userInput[1024];
     int cc;
     int threadID = *((int *) arg);
+    
+    
     
     clearBuffer(userInput);
     recv(thr_data[threadID].psd,userInput,sizeof(userInput), 0);
@@ -222,7 +225,8 @@ void *processThread(void *arg) {
             //process command here
             char * response = malloc(10000 * sizeof(char));
 
-            int responseSize = processUserInput(userInput, response, test);
+            
+            int responseSize = processUserInput(userInput, response, test, threadID);
             signal(SIGINT, SIG_DFL) == SIG_ERR;
 
             send(thr_data[threadID].psd, response, responseSize, 0);
@@ -256,15 +260,13 @@ void *processThread(void *arg) {
     return;
 }
 
-void spawnThread(){
+void spawnThread(int ephThreadsIndex){
     int rc;
     
     int *index = malloc(sizeof(*index));
-    *index = threadsIndex;
-    thr_data[threadsIndex].tid = threadsIndex;
-    thr_data[threadsIndex].psd = psd;
+    *index = ephThreadsIndex;
 
-    if ((rc = pthread_create(&thr[threadsIndex], NULL, processThread, (void*) index))) {
+    if ((rc = pthread_create(&thr[ephThreadsIndex], NULL, processThread, (void*) index))) {
       fprintf(stderr, "error: pthread_create, rc: %d\n", rc);
       return;
     }
@@ -300,11 +302,12 @@ void listenLoop()
     while (true)
     {
         listen(sd,1);
-        psd = accept(sd, 0, 0);
-
+        thr_data[threadsIndex].psd  = accept(sd, 0, 0);
+        int ephThreadsIndex = threadsIndex;
+        
         struct sockaddr_in addr;
         socklen_t addr_size = sizeof(struct sockaddr_in);
-        int res = getpeername(psd, (struct sockaddr *)&addr, &addr_size);
+        int res = getpeername(thr_data[threadsIndex].psd, (struct sockaddr *)&addr, &addr_size);
 
         thr_data[threadsIndex].ip = malloc(20 * sizeof(char));
         thr_data[threadsIndex].ip = inet_ntoa(addr.sin_addr);
@@ -312,7 +315,7 @@ void listenLoop()
         
         logCommand("Connection Established", thr_data[threadsIndex].ip, thr_data[threadsIndex].port, 4);
 
-        spawnThread();
+        spawnThread(ephThreadsIndex);
         threadsIndex++;
         yashSizeVar++;
     }

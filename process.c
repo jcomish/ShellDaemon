@@ -414,7 +414,8 @@ int redirectOutputToVariable(int * pipefd2, char * response)
     return countBufferSize(response);
 }
 
-int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTable, int * pJobSize, char * userInput, char * response, bool pISDEBUG){
+int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTable, 
+        int * pJobSize, char * userInput, char * response, int socket, bool pISDEBUG){
     if (signal(SIGINT, SIG_DFL) == SIG_ERR)
         if (ISDEBUG){printf("signal(SIGINT) error");}
     if (signal(SIGTSTP, SIG_DFL) == SIG_ERR)
@@ -449,7 +450,6 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
     int pipeIndex = containsCommand(commands, "|");
     int backgroundIndex = containsCommand(commands, "&");
     
-    printf("pipe index: %d\n", pipeIndex);
     if (!isShellProcess(commands))
     {
         if (pipeIndex != -1)
@@ -469,6 +469,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
         
         if (pid_ch1 > 0)
         {
+/*
             if (outputRedirectIndex == -1)
             {
                 clearBuffer(response);
@@ -482,6 +483,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
 
                 return countBufferSize(response);
             }
+*/
             
             if (pipeIndex == -1)
             {
@@ -575,15 +577,19 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
 
             pgid = setsid();
             
+/*
             if (outputRedirectIndex == -1)
             {
                 close(pipefd2[0]);    // close reading end in the child
 
                 dup2(pipefd2[1], 1);  // send stdout to the pipe
-                dup2(pipefd2[1], 2);  // send stderr to the pipe
 
                 close(pipefd2[1]);    // this descriptor is no longer needed
             }
+*/
+            printf("Socket: %d\n", socket);
+            dup2(socket, STDOUT_FILENO);
+            //close(socket);
 
                     
             if (execvp(commands[0][0], commands[0]) != 0)
