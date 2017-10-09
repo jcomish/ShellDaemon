@@ -72,46 +72,14 @@ void openSocket(){
      send(sd, "Connection successfully established", 36, 0 );
 }
 
-/*
-char * combineCommands(char *** commandList){
-    char *commandReturn = malloc (sizeof(char) * 300);
-    int commandSize = 0;
-    
-    commandReturn[commandSize] = 'C';
-    commandSize++;
-    commandReturn[commandSize] = 'M';
-    commandSize++;
-    commandReturn[commandSize] = 'D';
-    commandSize++;
-    commandReturn[commandSize] = ' ';
-    commandSize++;
-    
-    int i;
-    for (i = 0; commandList[i]; i++)
-    {
-        int j;
-        for (j = 0; commandList[i][j]; j++)
-        {
-            int z;
-            for (z = 0; commandList[i][j][z]; z++)
-            {
-                commandReturn[commandSize] = commandList[i][j][z];
-                commandSize++;
-            }
-            if (commandList[i][j + 1] || commandList[i + 1])
-            {
-                commandReturn[commandSize] = ' ';
-                commandSize++;
-            }
-        }
-    }
-    
-    commandReturn[commandSize] = '\n';
-    commandSize++;
-    commandReturn[commandSize] = '\0';
-    return commandReturn;
+char* concat(const char *s1, const char *s2)
+{
+    char *result = malloc(strlen(s1)+strlen(s2)+1);//+1 for the null-terminator
+    //in real code you would check for errors in malloc here
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
 }
-*/
 
 int main(int argc, char **argv){
     if (argc > 1)
@@ -126,7 +94,7 @@ int main(int argc, char **argv){
         daemonIp = "127.0.0.1";
     }
     
-    char buf[1024];
+    char buf[10000];
 
     setupSignals();
     openSocket();
@@ -138,14 +106,11 @@ int main(int argc, char **argv){
         
         fgets(userInput, 250, stdin);
         //need this to immediately terminate
-        //printf("%d\n", isSignalSent);
         if (feof(stdin)){ 
             break;
         }
-        
-        
-        
-        sendCommand(userInput);
+
+        sendCommand(concat("CMD ", userInput));
         clearBuffer(userInput);
     }
     

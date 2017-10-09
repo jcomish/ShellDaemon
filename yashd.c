@@ -111,7 +111,6 @@ int trimProtocolInput(char *userInput){
         memmove(&userInput[0], &userInput[1], strlen(userInput));
         return 1;
     }
-/*
     else if (userInput[0] == 'C' && userInput[1] == 'T' && userInput[2] == 'L')
     {
         memmove(&userInput[0], &userInput[1], strlen(userInput));
@@ -120,7 +119,6 @@ int trimProtocolInput(char *userInput){
         memmove(&userInput[0], &userInput[1], strlen(userInput));
         return 2;
     }
-*/
     else
     {
         return -1;
@@ -148,7 +146,8 @@ int processUserInput(char * userInput, char * response, int * test)
 {
     bool ISDEBUG = false;
     int commandCount = 0;
-
+    printf("userInput: %s\n", userInput);
+    
     if (handleError(validateInput(userInput)))
     {
         char **stringList;
@@ -188,7 +187,6 @@ int processUserInput(char * userInput, char * response, int * test)
     }       
     i++;
 
-    printf("count: %d\n", commandCount);
     return commandCount;
 }
 
@@ -201,7 +199,6 @@ void *processThread(void *arg) {
     recv(thr_data[threadID].psd,userInput,sizeof(userInput), 0);
     
     //send initial #\n
-    printf("%s\n", userInput);
     send(thr_data[threadID].psd, "#", 3, 0 );
     int jobSizeVar = 0;
     int *test;
@@ -215,23 +212,44 @@ void *processThread(void *arg) {
         userInput[cc] = '\0';
         
         int commandStatus = trimProtocolInput(userInput);
-        
         logCommand(userInput, threadID);
         
-        //process command here
-        char * response = malloc(10000 * sizeof(char));
+        if (commandStatus == 1)
+        {
+            //process command here
+            char * response = malloc(10000 * sizeof(char));
 
-        int responseSize = processUserInput(userInput, response, test);
-        
-        //printf(response);
-        
-        signal(SIGINT, SIG_DFL) == SIG_ERR;
+            int responseSize = processUserInput(userInput, response, test);
 
-        send(thr_data[threadID].psd, response, responseSize, 0);
-        send(thr_data[threadID].psd, "\n#", 3, 0 );
-        clearBuffer(userInput);
-        clearBuffer(response);
-        jobSizeVar++;
+            signal(SIGINT, SIG_DFL) == SIG_ERR;
+
+            send(thr_data[threadID].psd, response, responseSize, 0);
+            send(thr_data[threadID].psd, "\n#", 3, 0 );
+            clearBuffer(userInput);
+            clearBuffer(response);
+            jobSizeVar++;
+        }
+        else if (commandStatus == 2)
+        {
+            //Need to kill/stop currently running process
+            if (userInput == "c")
+            {
+                
+            }
+            else if (userInput == "z")
+            {
+                
+            }
+            clearBuffer(userInput);
+
+        }
+        else if (commandStatus == -1)
+        {
+            send(thr_data[threadID].psd, "yashd: Failed to process command!", 35, 0);
+            send(thr_data[threadID].psd, "\n#", 3, 0 );
+            clearBuffer(userInput);
+
+        }
     }
     
     return;
