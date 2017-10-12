@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <netdb.h>
+#include <semaphore.h>
 
 
 #include <sys/types.h>
@@ -36,7 +37,7 @@
 #include "process.h"
 #include "logger.h"
 
-#define NUM_THREADS 25
+#define NUM_THREADS 250
 
 typedef struct _thread_data_t {
   int tid;
@@ -64,6 +65,12 @@ typedef struct Job {
     char ground;
     char status [20];
     char command[250];
+};
+
+typedef struct userInputContainer {
+    int * jobSize;
+    int threadID;
+    char userInput[1024];
 };
 
 int status;
@@ -137,10 +144,16 @@ int trimProtocolInput(char *userInput){
     }
 }
 
-int processUserInput(char * userInput, char * response, int * test, int ephThreadsIndex)
+void processUserInput(void * args)
 {
     bool ISDEBUG = false;
-    int commandCount = 0;
+    int commandStatus = 0;
+    
+    struct userInputContainer * data = (struct userInputContainer *) args;    
+    
+    char *userInput = data->userInput;
+    int *test = data->jobSize;
+    int ephThreadsIndex = data->threadID;
     
     if (handleError(validateInput(userInput)))
     {
@@ -153,9 +166,10 @@ int processUserInput(char * userInput, char * response, int * test, int ephThrea
         
         if (validateStringAmnt(stringList))
         {
-            commandCount = processCommands(commandList, shell_pgid, jobTable, test, 
-                    userInput, response, thr_data[ephThreadsIndex].psd, ISDEBUG);
-            if (commandCount == -1)
+            commandStatus = processCommands(commandList, shell_pgid, jobTable, test, 
+                    userInput, thr_data[ephThreadsIndex].psd, ISDEBUG);
+            
+            if (commandStatus == -1)
             {
                 printf("ERROR: Invalid Command\n");
             }
@@ -164,6 +178,8 @@ int processUserInput(char * userInput, char * response, int * test, int ephThrea
         {
             printf("INVALID INPUT: You are allowed up to 1 pipeline (2 commands), 1 IO redirect, and cannot background a pipeline.");
         }
+        
+        
 
         int i;
         for (i = 0; stringList[i] != '\0'; i++)
@@ -180,80 +196,108 @@ int processUserInput(char * userInput, char * response, int * test, int ephThrea
         userInput[i] = '\0';
     }       
     i++;
+    
+    if (commandStatus >= 0)
+        send(thr_data[ephThreadsIndex].psd, "\n#", 3, 0 );
 
-    return commandCount;
+    return;
 }
 
 void *processThread(void *arg) {
     char userInput[1024];
     int cc;
     int threadID = *((int *) arg);
-    
-    
-    
+
     clearBuffer(userInput);
     recv(thr_data[threadID].psd,userInput,sizeof(userInput), 0);
-    
-    //send initial #\n
-    send(thr_data[threadID].psd, "#", 3, 0 );
-    int jobSizeVar = 0;
-    int *test;
-    test = &jobSizeVar;
 
+    //send initial #\n
+    send(thr_data[threadID].psd, "\n#", 3, 0 );
+
+    int jobSizeVar = 0;
+    int *jobSizeToPass;
+    jobSizeToPass = &jobSizeVar;
+
+    pthread_t commandThr[NUM_THREADS];
+    int numCommands = 0;
+    
+    sem_t mysem;
+    int ret;
+    ret = sem_init(&mysem, 0, 1);
+    if (ret != 0) {
+        /* error. errno has been set */
+        perror("Unable to initialize the semaphore");
+        abort();
+    }
+    
+/*
+    ret = sem_wait(&mysem);
+    ret = sem_post(&mysem);
+*/
+    
     while(true) 
     {
         clearBuffer(userInput);
-        //logMessage("before");
+
         cc=recv(thr_data[threadID].psd,userInput,sizeof(userInput), 0);
-            if (cc == 0) 
-            {
-                logCommand("Closing Connection", thr_data[threadID].ip, thr_data[threadID].port, 4);
-                return;
-            }
-            else if (cc == -1)
-            {
-                return;
-            }
+        if (cc == 0) 
+        {
+            logCommand("Closing Connection", thr_data[threadID].ip, thr_data[threadID].port, 4);
+            return;
+        }
+        else if (cc == -1)
+        {
+            return;
+        }
         userInput[cc] = '\0';
-        //logMessage("after");
+
         
         int commandStatus = trimProtocolInput(userInput);
         logCommand(userInput, thr_data[threadID].ip, thr_data[threadID].port, 3);
-        
         if (commandStatus == 1)
         {
-            //process command here
-            char * response = malloc(10000 * sizeof(char));
+            struct userInputContainer data;
+            strcpy(data.userInput, userInput);
+            data.jobSize = jobSizeToPass;         
+            data.threadID = threadID;
 
-            
-            int responseSize = processUserInput(userInput, response, test, threadID);
+            int rc;
+            if ((rc = pthread_create(&commandThr[numCommands], NULL, processUserInput, (void*) &data))) {
+              fprintf(stderr, "error: pthread_create, rc: %d\n", rc);
+              return;
+            }
+            numCommands++;
+            //processUserInput(userInput, jobSizeToPass, threadID);
             signal(SIGINT, SIG_DFL) == SIG_ERR;
 
-            send(thr_data[threadID].psd, response, responseSize, 0);
-            send(thr_data[threadID].psd, "\n#", 3, 0 );
-            clearBuffer(userInput);
-            clearBuffer(response);
+            //send(thr_data[threadID].psd, response, responseSize, 0);
+            
+            
+            
             jobSizeVar++;
         }
+        
         else if (commandStatus == 2)
         {
             //Need to kill/stop currently running process
-            if (userInput == "c")
+            if (strcmp(userInput, "c") == 0)
             {
-                //kill(getForeGroundPid(),SIGINT);
+                kill(getForeGroundPid(),SIGINT);
+                resetStdIo();
+                send(thr_data[threadID].psd, "\n#", 3, 0 );
             }
-            else if (userInput == "z")
+            else if (strcmp(userInput, "z") == 0)
             {
-                
+                kill(getForeGroundPid(),SIGSTOP);
+                resetStdIo();
+                send(thr_data[threadID].psd, "\n#", 3, 0 );
             }
-            clearBuffer(userInput);
 
         }
         else if (commandStatus == -1)
         {
             send(thr_data[threadID].psd, "yashd: Failed to process command!", 35, 0);
             send(thr_data[threadID].psd, "\n#", 3, 0 );
-            clearBuffer(userInput);
         }
     }
     
@@ -262,7 +306,6 @@ void *processThread(void *arg) {
 
 void spawnThread(int ephThreadsIndex){
     int rc;
-    
     int *index = malloc(sizeof(*index));
     *index = ephThreadsIndex;
 
@@ -411,13 +454,14 @@ void initDaemon()
     close (fd);
 */
     
-    listenLoop();
+    
     return;
 }
 
 int main(int argc, char** argv) {
     printf("Starting yashd...\n");
     initDaemon();
+    listenLoop();
     
     return 0;
 }

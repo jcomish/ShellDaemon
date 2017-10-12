@@ -141,8 +141,6 @@ void runLogger()
         abort();
     }
     
-    
-    
     //Spawn the listener
     if ((rc = pthread_create(&listenerTid, NULL, serverUp, (void*) args))) {
       fprintf(stderr, "error: pthread_create, rc: %d\n", rc);

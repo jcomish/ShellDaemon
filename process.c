@@ -39,6 +39,7 @@ int stdouttemp;
 
 static void sig_int(int signo) {
     //printf("Sending signals to group:%d\n",pid_ch1); // group id is pid of first in pipeline
+    printf("Killing pid: %d\n", getForeGroundPid());
     kill(getForeGroundPid(),SIGINT);
     //Needed to do this so you can repeadetedly interrupt
 }
@@ -50,6 +51,16 @@ static void sig_chld(int signo) {
     //printf("Sending signals to group:%d\n",pid_ch1); 
     //kill(pid_ch1,SIGSTOP);
     //printf("signal(SIGCHLD) error");
+}
+
+void resetStdIo()
+{
+    dup2(stdintemp, 0);
+    close(stdintemp);
+    dup2(stdouttemp, 1);
+    close(stdouttemp);
+    fflush(stdout);
+    return;
 }
 
 void setupSignals(){
@@ -228,9 +239,12 @@ void printJob(struct Job job, int i){
 void printJobTable(){
     int i;
     
-    for (i = 1; i < (*jobSize) + 1; i++)
+    if (*jobSize > 0)
     {
-        printJob(processJobTable[i], i);
+        for (i = 1; i < (*jobSize) + 1; i++)
+        {
+            printJob(processJobTable[i], i);
+        }
     }
     return;
 }
@@ -241,7 +255,7 @@ bool isShellProcess(char ***commands){
     int jobsIndex = containsCommand(commands, "jobs");
     int jobPid;
     int jobIndex;
-
+    
     if (fgIndex == 0 && countArgs(commands[0]) == 2)
     {
         if (containsCharacter(commands[0][1], '%'))
@@ -273,6 +287,7 @@ bool isShellProcess(char ***commands){
     if (jobsIndex == 0)
     {
         printJobTable(jobSize);
+        
         return true;
     }
     if (fgIndex == 0)
@@ -415,7 +430,8 @@ int redirectOutputToVariable(int * pipefd2, char * response)
 }
 
 int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTable, 
-        int * pJobSize, char * userInput, char * response, int socket, bool pISDEBUG){
+        int * pJobSize, char * userInput, int socket, bool pISDEBUG){
+    dup2(socket, STDOUT_FILENO);
     if (signal(SIGINT, SIG_DFL) == SIG_ERR)
         if (ISDEBUG){printf("signal(SIGINT) error");}
     if (signal(SIGTSTP, SIG_DFL) == SIG_ERR)
@@ -462,29 +478,11 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
             }
         }
         
-        int pipefd2[2];
-        pipe(pipefd2);
-        
         pid_ch1 = fork();
         
         if (pid_ch1 > 0)
         {
-/*
-            if (outputRedirectIndex == -1)
-            {
-                clearBuffer(response);
-                
-                close(pipefd2[1]);  // close the write end of the pipe in the parent
-                while (read(pipefd2[0], response, 10000) != 0)
-                {
-                }
-
-                
-
-                return countBufferSize(response);
-            }
-*/
-            
+           
             if (pipeIndex == -1)
             {
                 setupSignals(ISDEBUG);
@@ -499,7 +497,6 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
                 dup2(stdouttemp, 1);
                 close(stdouttemp);
 
-                
                 return 0;
 
             }
@@ -538,6 +535,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
                     setpgid(0,pid_ch1);
                     close(pipefd[1]);
                     dup2(pipefd[0],STDIN_FILENO);
+                    dup2(socket, STDOUT_FILENO);
                     if (execvp(commands[2][0], commands[2]) != 0)
                     {
                         return -1;
@@ -573,28 +571,24 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
                 if (ISDEBUG){printf("DEBUG: Piping\n");}
                 close(pipefd[0]); // close the read end
                 dup2(pipefd[1],STDOUT_FILENO);
+                if (execvp(commands[0][0], commands[0]) != 0)
+                {
+                    return -1;
+                }
             }
-
-            pgid = setsid();
-            
-/*
-            if (outputRedirectIndex == -1)
+            else
             {
-                close(pipefd2[0]);    // close reading end in the child
-
-                dup2(pipefd2[1], 1);  // send stdout to the pipe
-
-                close(pipefd2[1]);    // this descriptor is no longer needed
-            }
-*/
-            printf("Socket: %d\n", socket);
-            dup2(socket, STDOUT_FILENO);
-            //close(socket);
-
-                    
-            if (execvp(commands[0][0], commands[0]) != 0)
-            {
-                return -1;
+                pgid = setsid();
+                dup2(socket, STDOUT_FILENO);
+                if (execvp(commands[0][0], commands[0]) != 0)
+                {
+                    return -1;
+                }
+                dup2(stdintemp, 0);
+                close(stdintemp);
+                dup2(stdouttemp, 1);
+                close(stdouttemp);
+                fflush(stdout);
             }
         }
     }

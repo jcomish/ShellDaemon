@@ -95,14 +95,26 @@ int main(int argc, char **argv){
     }
     
     char buf[10000];
-
     setupSignals();
     openSocket();
-    
+
     while(!feof(stdin))	
     {
-        recv(sd,buf,sizeof(buf), 0);
-        printf("%s ", buf);
+        
+        
+        
+        do 
+        {
+            clearBuffer(buf);
+            recv(sd,buf,sizeof(buf), 0);
+            if (strcmp(buf, "\n#") == 0)
+                printf("# ");
+            else
+                printf("%s", buf);
+            
+            fflush(stdout);
+        } while (strcmp(buf, "\n#") != 0);
+
         
         fgets(userInput, 250, stdin);
         //need this to immediately terminate
@@ -111,6 +123,7 @@ int main(int argc, char **argv){
         }
 
         sendCommand(concat("CMD ", userInput));
+        
         clearBuffer(userInput);
     }
     
