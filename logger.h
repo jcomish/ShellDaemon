@@ -3,7 +3,7 @@
 
 char * getTime();
 void serverUp (void);
-static void clientSend (char * message);
+void clientSend (char * message);
 void runLogger();
 void logCommand(char *command, char *ip, int port, int priority);
 

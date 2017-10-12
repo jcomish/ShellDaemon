@@ -4,7 +4,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <semaphore.h>
-
+#include <string.h>
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <stdio.h>
@@ -24,6 +24,8 @@
 #include <sys/stat.h>
 /* ctime() and time() */
 #include <time.h>
+
+#include "input.h"
 
 /* name of the POSIX object referencing the queue */
 #define MSGQOBJ_NAME    "/yashdQueuetest"
@@ -69,7 +71,7 @@ static void serverReceive (mqd_t svrHndl) {
     if (log == NULL)
     {
         printf("Error! can't open log file.");
-        return -1;
+        return;
     }
    
     rc = mq_receive (svrHndl, buffer, sizeof (buffer), NULL);
@@ -115,13 +117,13 @@ static void clientSend (char * message) {
     //printf ("Client sending.\n");
     cliHndl = mq_open (MSGQOBJ_NAME, O_RDWR);
     if (cliHndl < 0) {
-        printf ("   Error on client mq_open.\n");
+        printf ("Error on client mq_open.\n");
         exit (1);
     }
     
     rc = mq_send (cliHndl, message, strlen(message), 1);
     if (rc < 0) {
-        printf ("   Error %d (%s) on client mq_send.\n");
+        printf ("Error on client mq_send.\n");
         exit (1);
     }
 
@@ -132,7 +134,7 @@ void runLogger()
 {
     int rc;
     pthread_t * listenerTid;
-    char * args;
+    char * args = "";
     int ret;
     ret = sem_init(&mysem, 0, 1);
     if (ret != 0) {
@@ -148,7 +150,7 @@ void runLogger()
     }
     
 
-    return 0;
+    return;
 }
 
 

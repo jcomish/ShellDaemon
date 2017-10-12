@@ -580,15 +580,19 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
             {
                 pgid = setsid();
                 dup2(socket, STDOUT_FILENO);
+                int test = execvp(commands[0][0], commands[0]);
+/*
                 if (execvp(commands[0][0], commands[0]) != 0)
                 {
                     return -1;
                 }
+*/
                 dup2(stdintemp, 0);
                 close(stdintemp);
                 dup2(stdouttemp, 1);
                 close(stdouttemp);
-                fflush(stdout);
+                //fflush(stdout);
+                printf("status: %d\n", test);
             }
         }
     }

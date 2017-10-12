@@ -65,13 +65,13 @@ typedef struct Job {
     char ground;
     char status [20];
     char command[250];
-};
+} Job;
 
 typedef struct userInputContainer {
     int * jobSize;
     int threadID;
     char userInput[1024];
-};
+} userInputContainer;
 
 int status;
 pid_t shell_pgid;
@@ -112,7 +112,6 @@ void reusePort(int s){
 }   
 
 int trimProtocolInput(char *userInput){
-    int status;
     if (userInput[strlen(userInput) - 1] == '\n')
     {
         userInput[strlen(userInput) - 1] = '\0';
@@ -178,8 +177,6 @@ void processUserInput(void * args)
         {
             printf("INVALID INPUT: You are allowed up to 1 pipeline (2 commands), 1 IO redirect, and cannot background a pipeline.");
         }
-        
-        
 
         int i;
         for (i = 0; stringList[i] != '\0'; i++)
@@ -207,6 +204,7 @@ void *processThread(void *arg) {
     char userInput[1024];
     int cc;
     int threadID = *((int *) arg);
+    int * status = malloc(sizeof(int));
 
     clearBuffer(userInput);
     recv(thr_data[threadID].psd,userInput,sizeof(userInput), 0);
@@ -221,16 +219,15 @@ void *processThread(void *arg) {
     pthread_t commandThr[NUM_THREADS];
     int numCommands = 0;
     
+/*
     sem_t mysem;
     int ret;
     ret = sem_init(&mysem, 0, 1);
     if (ret != 0) {
-        /* error. errno has been set */
         perror("Unable to initialize the semaphore");
         abort();
     }
     
-/*
     ret = sem_wait(&mysem);
     ret = sem_post(&mysem);
 */
@@ -243,11 +240,13 @@ void *processThread(void *arg) {
         if (cc == 0) 
         {
             logCommand("Closing Connection", thr_data[threadID].ip, thr_data[threadID].port, 4);
-            return;
+            *status = -1;
+            return (void *) status;
         }
         else if (cc == -1)
         {
-            return;
+            *status = -1;
+            return (void *) status;
         }
         userInput[cc] = '\0';
 
@@ -264,16 +263,12 @@ void *processThread(void *arg) {
             int rc;
             if ((rc = pthread_create(&commandThr[numCommands], NULL, processUserInput, (void*) &data))) {
               fprintf(stderr, "error: pthread_create, rc: %d\n", rc);
-              return;
+              *status = -1;
+              return (void *) status;
             }
             numCommands++;
-            //processUserInput(userInput, jobSizeToPass, threadID);
-            signal(SIGINT, SIG_DFL) == SIG_ERR;
-
-            //send(thr_data[threadID].psd, response, responseSize, 0);
-            
-            
-            
+            //signal(SIGINT, SIG_DFL) == SIG_ERR;
+           
             jobSizeVar++;
         }
         
@@ -285,12 +280,15 @@ void *processThread(void *arg) {
                 kill(getForeGroundPid(),SIGINT);
                 resetStdIo();
                 send(thr_data[threadID].psd, "\n#", 3, 0 );
+                *status = 0;
+                
             }
             else if (strcmp(userInput, "z") == 0)
             {
                 kill(getForeGroundPid(),SIGSTOP);
                 resetStdIo();
                 send(thr_data[threadID].psd, "\n#", 3, 0 );
+                *status = 1;
             }
 
         }
@@ -298,10 +296,11 @@ void *processThread(void *arg) {
         {
             send(thr_data[threadID].psd, "yashd: Failed to process command!", 35, 0);
             send(thr_data[threadID].psd, "\n#", 3, 0 );
+            *status = -1;
         }
     }
     
-    return;
+    return (void *) status;
 }
 
 void spawnThread(int ephThreadsIndex){
@@ -350,7 +349,7 @@ void listenLoop()
         
         struct sockaddr_in addr;
         socklen_t addr_size = sizeof(struct sockaddr_in);
-        int res = getpeername(thr_data[threadsIndex].psd, (struct sockaddr *)&addr, &addr_size);
+        getpeername(thr_data[threadsIndex].psd, (struct sockaddr *)&addr, &addr_size);
 
         thr_data[threadsIndex].ip = malloc(20 * sizeof(char));
         thr_data[threadsIndex].ip = inet_ntoa(addr.sin_addr);
