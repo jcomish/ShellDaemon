@@ -157,21 +157,11 @@ void processUserInput(void * args)
             printf("INVALID INPUT: You are allowed up to 1 pipeline (2 commands), 1 IO redirect, and cannot background a pipeline.");
         }
 
-        int i;
-        for (i = 0; stringList[i] != '\0'; i++)
-        {
-            stringList[i] = "\0";
-        }
-
+        clearBuffer(stringList);
         freeCommandList(commandList);
 
     }   
-    int i;
-    for (i = 0; userInput[i] != '\0'; i++)
-    {
-        userInput[i] = '\0';
-    }       
-    i++;
+    clearBuffer(userInput);
     
     if (commandStatus >= 0)
         send(thr_data[ephThreadsIndex].psd, "\n#", 3, 0 );
@@ -263,7 +253,7 @@ void *processThread(void *arg) {
             else if (strcmp(userInput, "z") == 0)
             {
                 call_sig_tstp(0);
-                resetStdIo();
+                //resetStdIo();
                 send(thr_data[threadID].psd, "\n#", 3, 0 );
                 *status = 1;
             }
@@ -300,7 +290,6 @@ void reusePort(int s){
 	    printf("error in setsockopt,SO_REUSEPORT \n");
 	    exit(-1);
 	}
-    printf("Succeeded\n");
 }  
 
 void setupSocket(){
@@ -380,6 +369,7 @@ void initDaemon()
         exit(EXIT_SUCCESS);
     } 
     else if (daemon_pid > 0)
+        printf("yashd started");
         exit(EXIT_SUCCESS);
     
     //2. Close File Descriptors
@@ -441,16 +431,15 @@ void initDaemon()
 }
 
 int main(int argc, char** argv) {
-    bool ISDEBUG = true;
+    bool ISDEBUG = false;
     if (argc > 1)
     {
-        if (strcmp(argv[1], "-d") == 0 )
+        if (argv[1][1] == 'd')
         {
-            ISDEBUG = false;
+            ISDEBUG = true;
         }
     }
     
-    printf("Starting yashd...\n");
     if (!ISDEBUG)
     {
         initDaemon();

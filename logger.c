@@ -92,9 +92,6 @@ void serverUp (void) {
     struct mq_attr mqAttr;
 
     rc = mq_unlink (MSGQOBJ_NAME);
-    if (rc < 0) {
-        printf ("Warning on server mq_unlink.\n");
-    }
 
     mqAttr.mq_maxmsg = 10;
     mqAttr.mq_msgsize = 2048;

@@ -37,6 +37,7 @@ bool ISDEBUG;
 int stdintemp;
 int stdouttemp;
 int commandStatus;     //This is the status to be returned to the daemon
+int socketid;
 
 static void sig_int(int signo) {
     //printf("Sending signals to group:%d\n",pid_ch1); // group id is pid of first in pipeline
@@ -54,6 +55,16 @@ static void sig_chld(int signo) {
     //printf("signal(SIGCHLD) error");
 }
 
+void resetStdIo()
+{
+    dup2(stdintemp, 0);
+    close(stdintemp);
+    dup2(stdouttemp, 1);
+    close(stdouttemp);
+    fflush(stdout);
+    return;
+}
+
 void call_sig_int() {
     commandStatus = -1;
     sig_int(0);
@@ -63,17 +74,6 @@ void call_sig_int() {
 void call_sig_tstp() {
     commandStatus = -1;
     sig_tstp(0);
-    
-}
-
-void resetStdIo()
-{
-    dup2(stdintemp, 0);
-    close(stdintemp);
-    dup2(stdouttemp, 1);
-    close(stdouttemp);
-    fflush(stdout);
-    return;
 }
 
 void setupSignals(){
@@ -259,6 +259,7 @@ void printJob(struct Job job, int i){
 }
 
 void printJobTable(){
+    
     int i;
     int temp = *jobSize;
     
@@ -337,7 +338,7 @@ bool isShellProcess(char ***commands){
         if (pid == -1) 
         {
             perror("waitpid");
-            return false;
+            return true;
         }
         
         commandStatus = 0;
@@ -469,6 +470,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
     commandStatus = 0;
     stdouttemp = dup(1);
     stdintemp = dup(0);
+    socketid = socket;
     
     //set your globals
     ISDEBUG = pISDEBUG;
@@ -497,6 +499,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
     int pipeIndex = containsCommand(commands, "|");
     int backgroundIndex = containsCommand(commands, "&");
     
+    dup2(socket, STDOUT_FILENO);
     if (!isShellProcess(commands))
     {
         if (pipeIndex != -1)
@@ -508,6 +511,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
                 return -1;
             }
         }
+        
         
         pid_ch1 = fork();
         
