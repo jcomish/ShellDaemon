@@ -1,36 +1,22 @@
 #include <sys/wait.h>
-#include <sys/types.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <time.h>
 #include <netdb.h>
 #include <semaphore.h>
-
-
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 #include <sys/file.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sys/un.h>
 #include <fcntl.h>
-#include <netdb.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
 #include <signal.h>
 #include <errno.h>
-
-
 #include <pthread.h>
 
 #include "input.h"
@@ -102,14 +88,7 @@ void sig_chld(int n)
 /*For Jobs*/
 
 
-void reusePort(int s){
-    int one=1;
-    if ( setsockopt(s,SOL_SOCKET,SO_REUSEADDR,(char *) &one,sizeof(one)) == -1 )
-	{
-	    printf("error in setsockopt,SO_REUSEPORT \n");
-	    exit(-1);
-	}
-}   
+ 
 
 int trimProtocolInput(char *userInput){
     if (userInput[strlen(userInput) - 1] == '\n')
@@ -267,9 +246,7 @@ void *processThread(void *arg) {
               return (void *) status;
             }
             numCommands++;
-            //signal(SIGINT, SIG_DFL) == SIG_ERR;
-           
-            jobSizeVar++;
+            signal(SIGINT, SIG_DFL) == SIG_ERR;
         }
         
         else if (commandStatus == 2)
@@ -277,7 +254,7 @@ void *processThread(void *arg) {
             //Need to kill/stop currently running process
             if (strcmp(userInput, "c") == 0)
             {
-                kill(getForeGroundPid(),SIGINT);
+                call_sig_int(0);
                 resetStdIo();
                 send(thr_data[threadID].psd, "\n#", 3, 0 );
                 *status = 0;
@@ -285,7 +262,7 @@ void *processThread(void *arg) {
             }
             else if (strcmp(userInput, "z") == 0)
             {
-                kill(getForeGroundPid(),SIGSTOP);
+                call_sig_tstp(0);
                 resetStdIo();
                 send(thr_data[threadID].psd, "\n#", 3, 0 );
                 *status = 1;
@@ -315,6 +292,16 @@ void spawnThread(int ephThreadsIndex){
 
     return;
 }
+
+void reusePort(int s){
+    int one=1;
+    if ( setsockopt(s,SOL_SOCKET,SO_REUSEADDR,(char *) &one,sizeof(one)) == -1 )
+	{
+	    printf("error in setsockopt,SO_REUSEPORT \n");
+	    exit(-1);
+	}
+    printf("Succeeded\n");
+}  
 
 void setupSocket(){
     sd = socket (AF_INET,SOCK_STREAM,0);
@@ -367,7 +354,6 @@ void listenLoop()
 /*This is largely derived from the daemon_init method in u-echod.c example file*/
 void initDaemon()
 {
-/*
     pid_t daemon_pid;
     int fd;
     int i;
@@ -387,7 +373,6 @@ void initDaemon()
     strcpy(u_log_path, u_server_path);
     strncat(u_log_path, ".log", PATHMAX-strlen(u_log_path));
     
-    
     //1. fork the Daemon, close the parent
     daemon_pid = fork();
     if ( ( daemon_pid = fork() ) < 0 ) {
@@ -395,7 +380,6 @@ void initDaemon()
         exit(EXIT_SUCCESS);
     } 
     else if (daemon_pid > 0)
-        
         exit(EXIT_SUCCESS);
     
     //2. Close File Descriptors
@@ -420,7 +404,7 @@ void initDaemon()
     exit(0);
     }
     dup2(fd, STDIN_FILENO);
-    dup2(fd, STDOUT_FILENO);
+    //dup2(fd, STDOUT_FILENO);
     close (fd);
     
     //6. Make sure only one copy of daemon exists
@@ -451,15 +435,26 @@ void initDaemon()
     fd = fileno(log);
     dup2(fd, STDERR_FILENO);
     close (fd);
-*/
     
-    
+    listenLoop();
     return;
 }
 
 int main(int argc, char** argv) {
+    bool ISDEBUG = true;
+    if (argc > 1)
+    {
+        if (strcmp(argv[1], "-d") == 0 )
+        {
+            ISDEBUG = false;
+        }
+    }
+    
     printf("Starting yashd...\n");
-    initDaemon();
+    if (!ISDEBUG)
+    {
+        initDaemon();
+    }
     listenLoop();
     
     return 0;

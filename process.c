@@ -36,10 +36,11 @@ int * jobSize;
 bool ISDEBUG;
 int stdintemp;
 int stdouttemp;
+int commandStatus;     //This is the status to be returned to the daemon
 
 static void sig_int(int signo) {
     //printf("Sending signals to group:%d\n",pid_ch1); // group id is pid of first in pipeline
-    printf("Killing pid: %d\n", getForeGroundPid());
+    //printf("Killing pid: %d\n", getForeGroundPid());
     kill(getForeGroundPid(),SIGINT);
     //Needed to do this so you can repeadetedly interrupt
 }
@@ -51,6 +52,18 @@ static void sig_chld(int signo) {
     //printf("Sending signals to group:%d\n",pid_ch1); 
     //kill(pid_ch1,SIGSTOP);
     //printf("signal(SIGCHLD) error");
+}
+
+void call_sig_int() {
+    commandStatus = -1;
+    sig_int(0);
+    
+}
+
+void call_sig_tstp() {
+    commandStatus = -1;
+    sig_tstp(0);
+    
 }
 
 void resetStdIo()
@@ -88,7 +101,7 @@ bool isBackgroundProcess(int pid){
     return false;
 }
 
-void redirectInput(char ***commands, int inputRedirectIndex){
+int redirectInput(char ***commands, int inputRedirectIndex){
     //REQUIREMENT: < will replace stdin with the file that is the next token
     if (ISDEBUG){printf("DEBUG: Redirecting Input to %s\n", commands[inputRedirectIndex + 1][0]);}
     int in = open(commands[inputRedirectIndex + 1][0], O_RDONLY);
@@ -98,12 +111,13 @@ void redirectInput(char ***commands, int inputRedirectIndex){
         //REQUIREMENT: fail command if input redirection (a file) does not exist
         printf("ERROR: \"%s\" is not a valid file\n", commands[inputRedirectIndex + 1][0]);
 
-        return;
+        return -1;
     }
     else
     {
         dup2(in, 0);
         close(in);
+        return 0;
     }
 }
 
@@ -227,21 +241,30 @@ void writeToJobTable(char * userInput, int pgid, int pid, bool fg){
 }
 
 void printJob(struct Job job, int i){
-    if (strcmp(job.status, "Stopped") == 0 || strcmp(job.status, "Running") == 0)
+    if (job.status != "\0")
+        {
+        if (strcmp(job.status, "Stopped") == 0 || strcmp(job.status, "Running") == 0)
+        {
+            printf("[%d] %c %s   %s", i, job.ground, job.status, job.command);
+            if(ISDEBUG){printf("      %d  %d",job.pid, job.pgid);}
+            printf("\n");
+        }  
+        return;
+    }
+    else
     {
-        printf("[%d] %c %s   %s", i, job.ground, job.status, job.command);
-        if(ISDEBUG){printf("      %d  %d",job.pid, job.pgid);}
-        printf("\n");
-    }  
-    return;
+        printf("Job does not exist!\n");
+        return;
+    }
 }
 
 void printJobTable(){
     int i;
+    int temp = *jobSize;
     
     if (*jobSize > 0)
     {
-        for (i = 1; i < (*jobSize) + 1; i++)
+        for (i = 1; i < ((*jobSize) + 1); i++)
         {
             printJob(processJobTable[i], i);
         }
@@ -274,6 +297,8 @@ bool isShellProcess(char ***commands){
         if (processJobTable[jobIndex].ground == '+')
         {
             printf("ERROR: Cannot bring a process to the forground that is already there.\n");
+            commandStatus = 0;
+            usleep(100);
             return true;
         }
     }
@@ -287,7 +312,8 @@ bool isShellProcess(char ***commands){
     if (jobsIndex == 0)
     {
         printJobTable(jobSize);
-        
+        commandStatus = 0;
+        usleep(100);
         return true;
     }
     if (fgIndex == 0)
@@ -314,7 +340,8 @@ bool isShellProcess(char ***commands){
             return false;
         }
         
-        
+        commandStatus = 0;
+        usleep(100);
         return true;
     }
     //REQUIREMENT: bg must send SIGCONT to the most recent stopped process, print 
@@ -349,10 +376,13 @@ bool isShellProcess(char ***commands){
         tcsetpgrp(processJobTable[0].pid, STDOUT_FILENO);
         tcsetpgrp(processJobTable[0].pid, STDIN_FILENO);
         //signalHandler(jobPid);
+        commandStatus = 0;
+         usleep(100);
         return true;
         //REQUIREMENT: Terminated background jobs will be printed after the 
         //             newline character sent on stdin with a Done in place of the Stopped or Running.
     }
+
     return false;
 }
 
@@ -436,6 +466,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
         if (ISDEBUG){printf("signal(SIGINT) error");}
     if (signal(SIGTSTP, SIG_DFL) == SIG_ERR)
         if (ISDEBUG){printf("signal(SIGTSTP) error");}
+    commandStatus = 0;
     stdouttemp = dup(1);
     stdintemp = dup(0);
     
@@ -474,7 +505,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
             if (pipe(pipefd) == -1) 
             {
                 perror("pipe");
-                return 1;
+                return -1;
             }
         }
         
@@ -487,17 +518,17 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
             {
                 setupSignals(ISDEBUG);
                 if(ISDEBUG){printf("Child1 pid = %d\n",pid_ch1);}
-
+                
                 writeToJobTable(userInput, pgid, pid_ch1, (backgroundIndex == -1));
                 waitForSignals(pipeIndex, backgroundIndex);
-
+                
                 //Reset the FDs
                 dup2(stdintemp, 0);
                 close(stdintemp);
                 dup2(stdouttemp, 1);
                 close(stdouttemp);
 
-                return 0;
+                return commandStatus;
 
             }
 
@@ -525,7 +556,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
                     dup2(stdouttemp, 1);
                     close(stdouttemp);
 
-                    return 0;
+                    return commandStatus;
                 }
                 else 
                 {
@@ -554,7 +585,8 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
             //Redirect input if in line
             if (inputRedirectIndex != -1)
             {
-                redirectInput(commands, inputRedirectIndex);
+                if (redirectInput(commands, inputRedirectIndex) == -1)
+                    return -1;
             }
 
             //Redirect output if in line
@@ -579,23 +611,24 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
             else
             {
                 pgid = setsid();
-                dup2(socket, STDOUT_FILENO);
-                int test = execvp(commands[0][0], commands[0]);
-/*
+                if (outputRedirectIndex == -1)
+                {
+                    dup2(socket, STDOUT_FILENO);
+                }
+                //int test = execvp(commands[0][0], commands[0]);
                 if (execvp(commands[0][0], commands[0]) != 0)
                 {
                     return -1;
                 }
-*/
                 dup2(stdintemp, 0);
                 close(stdintemp);
                 dup2(stdouttemp, 1);
                 close(stdouttemp);
                 //fflush(stdout);
-                printf("status: %d\n", test);
+                //printf("status: %d\n", test);
             }
         }
     }
     
-    return 0;
+    return commandStatus;
 }

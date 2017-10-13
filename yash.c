@@ -100,9 +100,6 @@ int main(int argc, char **argv){
 
     while(!feof(stdin))	
     {
-        
-        
-        
         do 
         {
             clearBuffer(buf);
@@ -119,6 +116,7 @@ int main(int argc, char **argv){
         fgets(userInput, 250, stdin);
         //need this to immediately terminate
         if (feof(stdin)){ 
+            sendCommand(concat("CTL d\n", userInput));
             break;
         }
 
