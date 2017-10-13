@@ -71,8 +71,9 @@
           <runcommandpicklistitem>./yash -d</runcommandpicklistitem>
           <runcommandpicklistitem>./yash 127.0.0.1 -d</runcommandpicklistitem>
           <runcommandpicklistitem>./yashd</runcommandpicklistitem>
+          <runcommandpicklistitem>./yashd -d</runcommandpicklistitem>
         </runcommandpicklist>
-        <runcommand>./yashd</runcommand>
+        <runcommand>./yashd -d</runcommand>
         <rundir>.</rundir>
         <buildfirst>true</buildfirst>
         <console-type>1</console-type>

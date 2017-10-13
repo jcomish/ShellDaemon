@@ -100,17 +100,29 @@ int main(int argc, char **argv){
 
     while(!feof(stdin))	
     {
+        char * cont;
+        bool cont2 = true;
         do 
         {
             clearBuffer(buf);
-            recv(sd,buf,sizeof(buf), 0);
-            if (strcmp(buf, "\n#") == 0)
-                printf("# ");
+            recv(sd,buf,sizeof(sizeof(buf)), 0);
+            if (strstr(buf, "\n#") != NULL)
+            {
+                printf("\n# ");
+                cont2 = false;
+            }
+                
             else
                 printf("%s", buf);
-            
+                    
             fflush(stdout);
-        } while (strcmp(buf, "\n#") != 0);
+        } while (cont2);
+        
+/*
+        if(strstr(buf, "\n#") != NULL) {
+strcmp(buf, "\n#") != 0
+        }
+*/
 
         
         fgets(userInput, 250, stdin);

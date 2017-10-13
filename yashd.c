@@ -19,6 +19,10 @@
 #include <errno.h>
 #include <pthread.h>
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+
 #include "input.h"
 #include "process.h"
 #include "logger.h"
@@ -151,6 +155,7 @@ void processUserInput(void * args)
             {
                 printf("ERROR: Invalid Command\n");
             }
+            
         }
         else
         {
@@ -162,6 +167,13 @@ void processUserInput(void * args)
 
     }   
     clearBuffer(userInput);
+    
+    //dup2(thr_data[ephThreadsIndex].psd, STDOUT_FILENO);
+    fflush(stdout);
+    //int flag = 1;
+
+    //setsockopt(thr_data[ephThreadsIndex].psd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
+    //send(thr_data[threadID].psd, "\n#", 3, 0 );
     
     if (commandStatus >= 0)
         send(thr_data[ephThreadsIndex].psd, "\n#", 3, 0 );
@@ -256,6 +268,7 @@ void *processThread(void *arg) {
                 //resetStdIo();
                 send(thr_data[threadID].psd, "\n#", 3, 0 );
                 *status = 1;
+                resetStdIo();
             }
 
         }

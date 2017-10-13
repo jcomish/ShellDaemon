@@ -57,22 +57,25 @@ static void sig_chld(int signo) {
 
 void resetStdIo()
 {
+    
     dup2(stdintemp, 0);
     close(stdintemp);
     dup2(stdouttemp, 1);
     close(stdouttemp);
     fflush(stdout);
+    fflush(stdin);
+    
     return;
 }
 
 void call_sig_int() {
-    commandStatus = -1;
+    commandStatus = -2;
     sig_int(0);
     
 }
 
 void call_sig_tstp() {
-    commandStatus = -1;
+    commandStatus = -2;
     sig_tstp(0);
 }
 
@@ -299,7 +302,6 @@ bool isShellProcess(char ***commands){
         {
             printf("ERROR: Cannot bring a process to the forground that is already there.\n");
             commandStatus = 0;
-            usleep(100);
             return true;
         }
     }
@@ -314,7 +316,6 @@ bool isShellProcess(char ***commands){
     {
         printJobTable(jobSize);
         commandStatus = 0;
-        usleep(100);
         return true;
     }
     if (fgIndex == 0)
@@ -342,7 +343,6 @@ bool isShellProcess(char ***commands){
         }
         
         commandStatus = 0;
-        usleep(100);
         return true;
     }
     //REQUIREMENT: bg must send SIGCONT to the most recent stopped process, print 
@@ -378,7 +378,7 @@ bool isShellProcess(char ***commands){
         tcsetpgrp(processJobTable[0].pid, STDIN_FILENO);
         //signalHandler(jobPid);
         commandStatus = 0;
-         usleep(100);
+
         return true;
         //REQUIREMENT: Terminated background jobs will be printed after the 
         //             newline character sent on stdin with a Done in place of the Stopped or Running.
@@ -402,10 +402,12 @@ void signalHandler(int pidToHandle){
             processJobTable[jobIndex].status = "Terminated";
 
             //This is for the pipes
+/*
             dup2(stdintemp, 0);
             close(stdintemp);
             dup2(stdouttemp, 1);
             close(stdouttemp);
+*/
             
             
             return;
@@ -462,7 +464,6 @@ int redirectOutputToVariable(int * pipefd2, char * response)
 
 int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTable, 
         int * pJobSize, char * userInput, int socket, bool pISDEBUG){
-    dup2(socket, STDOUT_FILENO);
     if (signal(SIGINT, SIG_DFL) == SIG_ERR)
         if (ISDEBUG){printf("signal(SIGINT) error");}
     if (signal(SIGTSTP, SIG_DFL) == SIG_ERR)
@@ -512,7 +513,6 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
             }
         }
         
-        
         pid_ch1 = fork();
         
         if (pid_ch1 > 0)
@@ -525,12 +525,6 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
                 
                 writeToJobTable(userInput, pgid, pid_ch1, (backgroundIndex == -1));
                 waitForSignals(pipeIndex, backgroundIndex);
-                
-                //Reset the FDs
-                dup2(stdintemp, 0);
-                close(stdintemp);
-                dup2(stdouttemp, 1);
-                close(stdouttemp);
 
                 return commandStatus;
 
@@ -633,6 +627,6 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
             }
         }
     }
-    
+
     return commandStatus;
 }
