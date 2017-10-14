@@ -196,8 +196,9 @@ bool validateStringAmnt(char ** strings)
 }
 
 
-bool handleError(bool* isValid)
+bool handleError(bool* isValid, int socket)
 {
+    dup2(socket, STDOUT_FILENO);
     if (!isValid[0])
     {
         //REQUIREMENT: A command can have both the redirection symbols (No 2>&1)
@@ -263,9 +264,12 @@ void trimInput(char *rawInput, bool ISDEBUG)
 void printCommands(char ***strings)
 {
     int i;
+    
     for (i = 0; strings[i] != '\0'; i++)
     {
+/*
         printf("DEBUG: Command (%d): ", i);
+*/
         int j;
         for (j = 0; strings[i][j] != '\0'; j++)
         {

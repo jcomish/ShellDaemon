@@ -141,7 +141,8 @@ void processUserInput(void * args)
     int *test = process_vars_ptr->jobSize;
     int ephThreadsIndex = process_vars_ptr->ephThreadsIndex;
     
-    if (handleError(validateInput(userInput)))
+    dup2(thr_data[ephThreadsIndex].psd, STDOUT_FILENO);
+    if (handleError(validateInput(userInput), thr_data[ephThreadsIndex].psd))
     {
         char **stringList;
         trimInput(userInput, ISDEBUG);
@@ -152,7 +153,7 @@ void processUserInput(void * args)
         
         if (validateStringAmnt(stringList))
         {
-            commandStatus = processCommands(shell_pgid, thr_data[ephThreadsIndex].psd, process_vars_ptr);
+            commandStatus = processCommands(thr_data[ephThreadsIndex].psd, thr_data[ephThreadsIndex].psd, process_vars_ptr);
             
             if (commandStatus == -1)
             {
@@ -213,10 +214,11 @@ void *processThread(void *arg) {
         perror("Unable to initialize the semaphore");
         abort();
     }
-    
     ret = sem_wait(&mysem);
     ret = sem_post(&mysem);
 */
+    
+    
     while(true) 
     {
         clearBuffer(userInput);
@@ -242,8 +244,10 @@ void *processThread(void *arg) {
         {
             strcpy(process_vars_ptr->userInput, userInput);
             int rc;
+            
             if ((rc = pthread_create(&commandThr[numCommands], NULL, processUserInput, (void*) process_vars_ptr))) {
               fprintf(stderr, "error: pthread_create, rc: %d\n", rc);
+            
               *status = -1;
               return (void *) status;
             }
@@ -259,6 +263,7 @@ void *processThread(void *arg) {
                 call_sig_int(0);
                 resetStdIo();
                 send(thr_data[process_vars_ptr->ephThreadsIndex].psd, "\n#", 3, 0 );
+                
                 *status = 0;
                 
             }
@@ -469,7 +474,7 @@ int main(int argc, char** argv) {
 
         initDaemon();
 
-    listenLoop();
+    //listenLoop();
     
     return 0;
 }

@@ -6,7 +6,7 @@ void append(char *string, char c);
 void addString(char **commandList, int currentCommand, char *rawInput, int startIndex, int endIndex);
 char ** splitInput(char *input, bool ISDEBUG);
 bool validateStringAmnt(char ** strings);
-bool handleError(bool* isValid);
+bool handleError(bool* isValid, int socket);
 void trimInput(char *rawInput, bool ISDEBUG);
 void printCommands(char ***commands);
 bool isToken(char command);
