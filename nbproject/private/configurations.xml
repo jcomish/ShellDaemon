@@ -20,6 +20,7 @@
         <gdb_buildfirst gdb_buildfirst_overriden="false" gdb_buildfirst_old="false"/>
       </dbx_gdbdebugger>
       <gizmo_options version="3">
+        <configurationname>GizmoSimple</configurationname>
       </gizmo_options>
       <nativedebugger version="1">
         <engine>gdb</engine>
@@ -59,6 +60,7 @@
         <gdb_buildfirst gdb_buildfirst_overriden="false" gdb_buildfirst_old="false"/>
       </dbx_gdbdebugger>
       <gizmo_options version="3">
+        <configurationname>GizmoSimple</configurationname>
       </gizmo_options>
       <nativedebugger version="1">
         <engine>gdb</engine>
@@ -70,10 +72,10 @@
           <runcommandpicklistitem>./yash</runcommandpicklistitem>
           <runcommandpicklistitem>./yash -d</runcommandpicklistitem>
           <runcommandpicklistitem>./yash 127.0.0.1 -d</runcommandpicklistitem>
-          <runcommandpicklistitem>./yashd</runcommandpicklistitem>
           <runcommandpicklistitem>./yashd -d</runcommandpicklistitem>
+          <runcommandpicklistitem>./yashd</runcommandpicklistitem>
         </runcommandpicklist>
-        <runcommand>./yashd -d</runcommand>
+        <runcommand>./yashd</runcommand>
         <rundir>.</rundir>
         <buildfirst>true</buildfirst>
         <console-type>1</console-type>

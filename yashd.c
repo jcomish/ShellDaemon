@@ -135,14 +135,6 @@ void processUserInput(void * args)
     bool ISDEBUG = false;
     int commandStatus = 0;
     
-    //struct userInputContainer * data = (struct userInputContainer *) args;    
-    
-/*
-    char *userInput = data->userInput;
-    int *test = data->jobSize;
-    int ephThreadsIndex = data->threadID;
-*/
-    
     struct process_vars * process_vars_ptr =  (struct process_vars *) args;   
     
     char *userInput = process_vars_ptr->userInput;
@@ -172,20 +164,19 @@ void processUserInput(void * args)
         {
             printf("INVALID INPUT: You are allowed up to 1 pipeline (2 commands), 1 IO redirect, and cannot background a pipeline.\n");
         }
+        
+        dup2(process_vars_ptr->stdintemp, 0);
+        close(process_vars_ptr->stdintemp);
+        dup2(process_vars_ptr->stdouttemp, 1);
+        close(process_vars_ptr->stdouttemp);
 
         clearBuffer(stringList);
         freeCommandList(commandList);
 
     }   
     clearBuffer(userInput);
-    
-    //dup2(thr_data[ephThreadsIndex].psd, STDOUT_FILENO);
     fflush(stdout);
-    //int flag = 1;
 
-    //setsockopt(thr_data[ephThreadsIndex].psd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
-    //send(thr_data[threadID].psd, "\n#", 3, 0 );
-    
     if (commandStatus >= 0)
         //usleep(10);
         send(thr_data[ephThreadsIndex].psd, "\n#", 3, 0 );
@@ -226,7 +217,6 @@ void *processThread(void *arg) {
     ret = sem_wait(&mysem);
     ret = sem_post(&mysem);
 */
-    
     while(true) 
     {
         clearBuffer(userInput);
@@ -251,13 +241,6 @@ void *processThread(void *arg) {
         if (commandStatus == 1)
         {
             strcpy(process_vars_ptr->userInput, userInput);
-/*
-            struct userInputContainer data;
-            strcpy(data.userInput, userInput);
-            data.jobSize = jobSizeToPass;         
-            data.threadID = process_vars_ptr->ephThreadsIndex;
-*/
-
             int rc;
             if ((rc = pthread_create(&commandThr[numCommands], NULL, processUserInput, (void*) process_vars_ptr))) {
               fprintf(stderr, "error: pthread_create, rc: %d\n", rc);
@@ -343,27 +326,28 @@ void listenLoop()
     setupSocket();
     shell_pgid = getpid();
     runLogger();
-
-    int yashSizeVar = 0;
-    yashSize = &yashSizeVar;
     
     struct process_vars ** process_vars_ptrs = malloc(255 * sizeof(struct process_vars *));
+    
+    //Not quite sure why, but we have to allocate our memory up front.
+    int i;
+    for (i = 0; i < 255; i++)
+    {
+        process_vars_ptrs[i] = malloc(sizeof(struct process_vars));
+        process_vars_ptrs[i]->jobSize = malloc(sizeof(int));
+        process_vars_ptrs[i]->processJobTable = malloc(sizeof(struct Job *));
+    }
     
     while (true)
     {
         listen(sd,1);
         thr_data[threadsIndex].psd  = accept(sd, 0, 0);
-        int ephThreadsIndex = threadsIndex;
-        
-        process_vars_ptrs[threadsIndex] = malloc(sizeof(struct process_vars));
-        process_vars_ptrs[threadsIndex]->jobSize = malloc(sizeof(int));
-        process_vars_ptrs[threadsIndex]->processJobTable = malloc(sizeof(struct Job *));
         process_vars_ptrs[threadsIndex]->stdintemp = dup(0);
         process_vars_ptrs[threadsIndex]->stdouttemp = dup(1);
         process_vars_ptrs[threadsIndex]->commandStatus = 0;
         *(process_vars_ptrs[threadsIndex]->jobSize) = 0;
         process_vars_ptrs[threadsIndex]->ephThreadsIndex = threadsIndex;
-        
+
         struct sockaddr_in addr;
         socklen_t addr_size = sizeof(struct sockaddr_in);
         getpeername(thr_data[threadsIndex].psd, (struct sockaddr *)&addr, &addr_size);
@@ -373,10 +357,8 @@ void listenLoop()
         thr_data[threadsIndex].port = addr.sin_port;
         
         logCommand("Connection Established", thr_data[threadsIndex].ip, thr_data[threadsIndex].port, 4);
-
         spawnThread(process_vars_ptrs[threadsIndex]);
         threadsIndex++;
-        yashSizeVar++;
     }
     return;
 }
@@ -410,7 +392,7 @@ void initDaemon()
         exit(EXIT_SUCCESS);
     } 
     else if (daemon_pid > 0)
-        printf("yashd started");
+        printf("yashd started\n");
         exit(EXIT_SUCCESS);
     
     //2. Close File Descriptors
@@ -472,6 +454,7 @@ void initDaemon()
 }
 
 int main(int argc, char** argv) {
+/*
     bool ISDEBUG = false;
     if (argc > 1)
     {
@@ -483,8 +466,9 @@ int main(int argc, char** argv) {
     
     if (!ISDEBUG)
     {
+*/
         initDaemon();
-    }
+    //}
     listenLoop();
     
     return 0;
