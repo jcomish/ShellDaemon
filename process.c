@@ -28,6 +28,17 @@ typedef struct Job {
     //bool is
 } Job;
 
+typedef struct process_vars {
+    struct Job * processJobTable;
+    int * jobSize;
+    int stdintemp;
+    int stdouttemp;
+    int commandStatus; 
+    int ephThreadsIndex;
+    char userInput[1024];
+    char *** commandsList;
+} process_var;
+
 int pipefd[2];
 int status, pid_ch1, pid_ch2, pid, pgid;
 
@@ -462,8 +473,17 @@ int redirectOutputToVariable(int * pipefd2, char * response)
     return countBufferSize(response);
 }
 
+/*
 int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTable, 
         int * pJobSize, char * userInput, int socket, bool pISDEBUG){
+*/
+int processCommands(pid_t shell_pgid_temp, int socket, struct process_vars * process_vars_ptr){
+    char ***commands = process_vars_ptr->commandsList;
+    int * pJobSize = process_vars_ptr->jobSize;
+    char * userInput = process_vars_ptr->userInput;
+    struct Job * jobTable = process_vars_ptr->processJobTable;
+    
+    
     if (signal(SIGINT, SIG_DFL) == SIG_ERR)
         if (ISDEBUG){printf("signal(SIGINT) error");}
     if (signal(SIGTSTP, SIG_DFL) == SIG_ERR)
@@ -474,7 +494,7 @@ int processCommands(char ***commands, pid_t shell_pgid_temp, struct Job * jobTab
     socketid = socket;
     
     //set your globals
-    ISDEBUG = pISDEBUG;
+    ISDEBUG = false;
     processJobTable = jobTable;
     jobSize = pJobSize;
     

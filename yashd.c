@@ -38,15 +38,16 @@ typedef struct _thread_data_t {
   
 } thread_data_t;
 
-static volatile int count=0;
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-
-pthread_t thr[NUM_THREADS];
-thread_data_t thr_data[NUM_THREADS];
-int threadsIndex = 0;
-int sd, psd;
-struct sockaddr_in server;
-
+typedef struct process_vars {
+    struct Job * processJobTable;
+    int * jobSize;
+    int stdintemp;
+    int stdouttemp;
+    int commandStatus; 
+    int ephThreadsIndex;
+    char userInput[1024];
+    char *** commandsList;
+} process_var;
 
 typedef struct Job {
     int pid;
@@ -56,6 +57,16 @@ typedef struct Job {
     char status [20];
     char command[250];
 } Job;
+
+static volatile int count=0;
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_t thr[NUM_THREADS];
+thread_data_t thr_data[NUM_THREADS];
+int threadsIndex = 0;
+int sd, psd;
+struct sockaddr_in server;
+
 
 typedef struct userInputContainer {
     int * jobSize;
@@ -85,13 +96,6 @@ void sig_chld(int n)
   fprintf(stderr, "Child terminated\n");
   wait(&status); /* So no zombies */
 }
-/*For Logging*/
-
-/*For Jobs*/
-
-/*For Jobs*/
-
-
  
 
 int trimProtocolInput(char *userInput){
@@ -131,11 +135,19 @@ void processUserInput(void * args)
     bool ISDEBUG = false;
     int commandStatus = 0;
     
-    struct userInputContainer * data = (struct userInputContainer *) args;    
+    //struct userInputContainer * data = (struct userInputContainer *) args;    
     
+/*
     char *userInput = data->userInput;
     int *test = data->jobSize;
     int ephThreadsIndex = data->threadID;
+*/
+    
+    struct process_vars * process_vars_ptr =  (struct process_vars *) args;   
+    
+    char *userInput = process_vars_ptr->userInput;
+    int *test = process_vars_ptr->jobSize;
+    int ephThreadsIndex = process_vars_ptr->ephThreadsIndex;
     
     if (handleError(validateInput(userInput)))
     {
@@ -144,12 +156,11 @@ void processUserInput(void * args)
         stringList = splitInput(userInput, ISDEBUG);
 
         char ***commandList = splitIntoCommands(stringList, ISDEBUG);
-        
+        process_vars_ptr->commandsList = commandList;
         
         if (validateStringAmnt(stringList))
         {
-            commandStatus = processCommands(commandList, shell_pgid, jobTable, test, 
-                    userInput, thr_data[ephThreadsIndex].psd, ISDEBUG);
+            commandStatus = processCommands(shell_pgid, thr_data[ephThreadsIndex].psd, process_vars_ptr);
             
             if (commandStatus == -1)
             {
@@ -184,14 +195,16 @@ void processUserInput(void * args)
 void *processThread(void *arg) {
     char userInput[1024];
     int cc;
-    int threadID = *((int *) arg);
+    struct process_vars * process_vars_ptr =  (struct process_vars *) arg; 
+    //int threadID = *((int *) arg);
     int * status = malloc(sizeof(int));
 
+
     clearBuffer(userInput);
-    recv(thr_data[threadID].psd,userInput,sizeof(userInput), 0);
+    recv(thr_data[process_vars_ptr->ephThreadsIndex].psd,userInput,sizeof(userInput), 0);
 
     //send initial #\n
-    send(thr_data[threadID].psd, "\n#", 3, 0 );
+    send(thr_data[process_vars_ptr->ephThreadsIndex].psd, "\n#", 3, 0 );
 
     int jobSizeVar = 0;
     int *jobSizeToPass;
@@ -217,10 +230,10 @@ void *processThread(void *arg) {
     {
         clearBuffer(userInput);
 
-        cc=recv(thr_data[threadID].psd,userInput,sizeof(userInput), 0);
+        cc=recv(thr_data[process_vars_ptr->ephThreadsIndex].psd,userInput,sizeof(userInput), 0);
         if (cc == 0) 
         {
-            logCommand("Closing Connection", thr_data[threadID].ip, thr_data[threadID].port, 4);
+            logCommand("Closing Connection", thr_data[process_vars_ptr->ephThreadsIndex].ip, thr_data[process_vars_ptr->ephThreadsIndex].port, 4);
             *status = -1;
             return (void *) status;
         }
@@ -233,16 +246,19 @@ void *processThread(void *arg) {
 
         
         int commandStatus = trimProtocolInput(userInput);
-        logCommand(userInput, thr_data[threadID].ip, thr_data[threadID].port, 3);
+        logCommand(userInput, thr_data[process_vars_ptr->ephThreadsIndex].ip, thr_data[process_vars_ptr->ephThreadsIndex].port, 3);
         if (commandStatus == 1)
         {
+            strcpy(process_vars_ptr->userInput, userInput);
+/*
             struct userInputContainer data;
             strcpy(data.userInput, userInput);
             data.jobSize = jobSizeToPass;         
-            data.threadID = threadID;
+            data.threadID = process_vars_ptr->ephThreadsIndex;
+*/
 
             int rc;
-            if ((rc = pthread_create(&commandThr[numCommands], NULL, processUserInput, (void*) &data))) {
+            if ((rc = pthread_create(&commandThr[numCommands], NULL, processUserInput, (void*) process_vars_ptr))) {
               fprintf(stderr, "error: pthread_create, rc: %d\n", rc);
               *status = -1;
               return (void *) status;
@@ -258,7 +274,7 @@ void *processThread(void *arg) {
             {
                 call_sig_int(0);
                 resetStdIo();
-                send(thr_data[threadID].psd, "\n#", 3, 0 );
+                send(thr_data[process_vars_ptr->ephThreadsIndex].psd, "\n#", 3, 0 );
                 *status = 0;
                 
             }
@@ -266,7 +282,7 @@ void *processThread(void *arg) {
             {
                 call_sig_tstp(0);
                 //resetStdIo();
-                send(thr_data[threadID].psd, "\n#", 3, 0 );
+                send(thr_data[process_vars_ptr->ephThreadsIndex].psd, "\n#", 3, 0 );
                 *status = 1;
                 resetStdIo();
             }
@@ -274,8 +290,8 @@ void *processThread(void *arg) {
         }
         else if (commandStatus == -1)
         {
-            send(thr_data[threadID].psd, "yashd: Failed to process command!", 35, 0);
-            send(thr_data[threadID].psd, "\n#", 3, 0 );
+            send(thr_data[process_vars_ptr->ephThreadsIndex].psd, "yashd: Failed to process command!", 35, 0);
+            send(thr_data[process_vars_ptr->ephThreadsIndex].psd, "\n#", 3, 0 );
             *status = -1;
         }
     }
@@ -283,12 +299,12 @@ void *processThread(void *arg) {
     return (void *) status;
 }
 
-void spawnThread(int ephThreadsIndex){
+void spawnThread(struct process_vars* process_vars_ptr){
     int rc;
     int *index = malloc(sizeof(*index));
-    *index = ephThreadsIndex;
+    *index = process_vars_ptr->ephThreadsIndex;
 
-    if ((rc = pthread_create(&thr[ephThreadsIndex], NULL, processThread, (void*) index))) {
+    if ((rc = pthread_create(&thr[process_vars_ptr->ephThreadsIndex], NULL, processThread, (void*) process_vars_ptr))) {
       fprintf(stderr, "error: pthread_create, rc: %d\n", rc);
       return;
     }
@@ -330,11 +346,22 @@ void listenLoop()
     int yashSizeVar = 0;
     yashSize = &yashSizeVar;
     
+    struct process_vars ** process_vars_ptrs = malloc(255 * sizeof(struct process_vars *));
+    
     while (true)
     {
         listen(sd,1);
         thr_data[threadsIndex].psd  = accept(sd, 0, 0);
         int ephThreadsIndex = threadsIndex;
+        
+        process_vars_ptrs[threadsIndex] = malloc(sizeof(struct process_vars));
+        process_vars_ptrs[threadsIndex]->jobSize = malloc(sizeof(int));
+        process_vars_ptrs[threadsIndex]->processJobTable = malloc(sizeof(struct Job *));
+        process_vars_ptrs[threadsIndex]->stdintemp = dup(0);
+        process_vars_ptrs[threadsIndex]->stdouttemp = dup(1);
+        process_vars_ptrs[threadsIndex]->commandStatus = 0;
+        *(process_vars_ptrs[threadsIndex]->jobSize) = 0;
+        process_vars_ptrs[threadsIndex]->ephThreadsIndex = threadsIndex;
         
         struct sockaddr_in addr;
         socklen_t addr_size = sizeof(struct sockaddr_in);
@@ -346,7 +373,7 @@ void listenLoop()
         
         logCommand("Connection Established", thr_data[threadsIndex].ip, thr_data[threadsIndex].port, 4);
 
-        spawnThread(ephThreadsIndex);
+        spawnThread(process_vars_ptrs[threadsIndex]);
         threadsIndex++;
         yashSizeVar++;
     }
