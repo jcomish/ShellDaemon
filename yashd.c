@@ -363,6 +363,17 @@ void listenLoop()
     return;
 }
 
+
+
+
+
+
+
+
+
+
+
+
 /*This is largely derived from the daemon_init method in u-echod.c example file*/
 void initDaemon()
 {
@@ -392,7 +403,6 @@ void initDaemon()
         exit(EXIT_SUCCESS);
     } 
     else if (daemon_pid > 0)
-        printf("yashd started\n");
         exit(EXIT_SUCCESS);
     
     //2. Close File Descriptors
@@ -454,26 +464,12 @@ void initDaemon()
 }
 
 int main(int argc, char** argv) {
-/*
-    bool ISDEBUG = false;
-    if (argc > 1)
-    {
-        if (argv[1][1] == 'd')
-        {
-            ISDEBUG = true;
-        }
-    }
-    
-    if (!ISDEBUG)
-    {
-*/
+
+    printf("Starting yashd...\n");
+
         initDaemon();
-    //}
+
     listenLoop();
     
     return 0;
 }
-
-
-
-
