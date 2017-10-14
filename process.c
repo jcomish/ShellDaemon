@@ -39,6 +39,8 @@ int stdouttemp;
 int commandStatus;     //This is the status to be returned to the daemon
 int socketid;
 
+int sockettemp;
+
 static void sig_int(int signo) {
     //printf("Sending signals to group:%d\n",pid_ch1); // group id is pid of first in pipeline
     //printf("Killing pid: %d\n", getForeGroundPid());
@@ -136,6 +138,7 @@ void redirectOutput(char ***commands, int outputRedirectIndex){
 int getForeGroundPid(){
     int i;
     int currentPid = -1;
+    int test = *jobSize;
     for (i = 1; i <= *jobSize; i++)
     {
         if (processJobTable[i].ground == '+')
@@ -263,9 +266,10 @@ void printJob(struct Job job, int i){
 
 void printJobTable(){
     
+    dup2(socketid, STDOUT_FILENO);
     int i;
     int temp = *jobSize;
-    
+    printf("test");
     if (*jobSize > 0)
     {
         for (i = 1; i < ((*jobSize) + 1); i++)

@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <pthread.h>
+#include <poll.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -88,7 +89,16 @@ void sig_chld(int n)
 /*For Logging*/
 
 /*For Jobs*/
-
+static void sig_int(int signo) {
+    //printf("Sending signals to group:%d\n",pid_ch1); // group id is pid of first in pipeline
+    //printf("Killing pid: %d\n", getForeGroundPid());
+    kill(getForeGroundPid(),SIGINT);
+    //Needed to do this so you can repeadetedly interrupt
+}
+static void sig_tstp(int signo) {
+    //printf("Sending signals to group:%d\n",pid_ch1); 
+    kill(getForeGroundPid(),SIGSTOP);
+}
 /*For Jobs*/
 
 
@@ -181,6 +191,70 @@ void processUserInput(void * args)
     return;
 }
 
+
+
+int processUserInput_fork(char * userInput, int * jobSize, int ephThreadsIndex)
+{
+    bool ISDEBUG = false;
+    int commandStatus = 0;
+    
+/*
+    struct userInputContainer * data = (struct userInputContainer *) args;    
+    
+    char *userInput = data->userInput;
+    int *test = data->jobSize;
+    int ephThreadsIndex = data->threadID;
+*/
+    
+    if (handleError(validateInput(userInput)))
+    {
+        char **stringList;
+        trimInput(userInput, ISDEBUG);
+        stringList = splitInput(userInput, ISDEBUG);
+
+        char ***commandList = splitIntoCommands(stringList, ISDEBUG);
+        
+        
+        if (validateStringAmnt(stringList))
+        {
+            commandStatus = processCommands(commandList, shell_pgid, jobTable, jobSize, 
+                    userInput, thr_data[ephThreadsIndex].psd, ISDEBUG);
+            
+            if (commandStatus == -1)
+            {
+                printf("ERROR: Invalid Command\n");
+            }
+            
+        }
+        else
+        {
+            printf("INVALID INPUT: You are allowed up to 1 pipeline (2 commands), 1 IO redirect, and cannot background a pipeline.");
+        }
+
+        clearBuffer(stringList);
+        freeCommandList(commandList);
+
+    }   
+    clearBuffer(userInput);
+    
+    //dup2(thr_data[ephThreadsIndex].psd, STDOUT_FILENO);
+    fflush(stdout);
+    //int flag = 1;
+
+    //setsockopt(thr_data[ephThreadsIndex].psd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
+    //send(thr_data[threadID].psd, "\n#", 3, 0 );
+    
+    if (commandStatus >= 0)
+        send(thr_data[ephThreadsIndex].psd, "\n#", 3, 0 );
+
+    return commandStatus;
+}
+
+
+
+
+
+
 void *processThread(void *arg) {
     char userInput[1024];
     int cc;
@@ -241,36 +315,108 @@ void *processThread(void *arg) {
             data.jobSize = jobSizeToPass;         
             data.threadID = threadID;
 
+/*
             int rc;
             if ((rc = pthread_create(&commandThr[numCommands], NULL, processUserInput, (void*) &data))) {
               fprintf(stderr, "error: pthread_create, rc: %d\n", rc);
               *status = -1;
               return (void *) status;
             }
-            numCommands++;
-            signal(SIGINT, SIG_DFL) == SIG_ERR;
-        }
-        
-        else if (commandStatus == 2)
-        {
-            //Need to kill/stop currently running process
-            if (strcmp(userInput, "c") == 0)
+*/
+            int status;
+            int cpid = fork();
+            
+            if (cpid > 0)
             {
-                call_sig_int(0);
-                resetStdIo();
-                send(thr_data[threadID].psd, "\n#", 3, 0 );
-                *status = 0;
+                
+                //waitpid(cpid, &status, WUNTRACED | WCONTINUED);
+                 pid_t return_pid;
+                do
+                {
+                    return_pid = waitpid(cpid, &status, WNOHANG);
+                    if (return_pid == -1) {
+                        /* error */
+                    } else if (return_pid == 0) {
+                        
+                        
+                        fd_set rfds;
+                        struct timeval tv;
+                        int retval;
+
+                        
+                        FD_ZERO(&rfds);
+                        FD_SET(thr_data[threadID].psd, &rfds);
+                        tv.tv_sec = 0;
+                        tv.tv_usec = 0;
+                        retval = select(thr_data[threadID].psd + 1, &rfds, NULL, NULL, &tv);
+                        
+                        
+                        
+                        
+                        
+                        
+                        /* when it is found....*/
+                        if (retval == -1)
+                        {}
+                        else if (retval){
+                            char input[1024];
+                            clearBuffer(input);
+                            printf("Found Data!\n");
+                            recv(thr_data[threadID].psd,input,sizeof(input), 0);
+                            printf("%s\n", input);
+                            
+                            if (trimProtocolInput(input) == 2)
+                            {
+                                //Need to kill/stop currently running process
+                                if (strcmp(input, "c") == 0)
+                                {
+                                    //call_sig_int(0);
+                                    //resetStdIo();
+                                    kill(cpid, SIGINT);
+                                    //send(thr_data[threadID].psd, "\n#", 3, 0 );
+                                }
+                                else if (strcmp(input, "z") == 0)
+                                {
+                                    //call_sig_tstp(0);
+                                    //resetStdIo();
+                                    kill(cpid, SIGTSTP);
+                                    //send(thr_data[threadID].psd, "\n#", 3, 0 );
+                                    //resetStdIo();
+                                }
+                            }
+
+                        }
+                            
+                            
+                            
+
+                        
+                        
+                        
+                      
+                        
+                        
+                    } else if (return_pid == cpid) {
+                        printf("Finished!\n");
+                        printf("%d, %d\n", return_pid, cpid);
+                        /* child is finished. exit status in   status */
+                    }
+                } while (return_pid != cpid);
+            }
+            else
+            {
+                setupSignals(false);
+                processUserInput_fork(data.userInput, jobSizeToPass, data.threadID);
+                exit(0);
+                
                 
             }
-            else if (strcmp(userInput, "z") == 0)
-            {
-                call_sig_tstp(0);
-                //resetStdIo();
-                send(thr_data[threadID].psd, "\n#", 3, 0 );
-                *status = 1;
-                resetStdIo();
-            }
 
+            
+            
+                    
+            numCommands++;
+            signal(SIGINT, SIG_DFL) == SIG_ERR;
         }
         else if (commandStatus == -1)
         {
