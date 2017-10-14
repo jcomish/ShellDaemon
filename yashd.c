@@ -170,7 +170,7 @@ void processUserInput(void * args)
         }
         else
         {
-            printf("INVALID INPUT: You are allowed up to 1 pipeline (2 commands), 1 IO redirect, and cannot background a pipeline.");
+            printf("INVALID INPUT: You are allowed up to 1 pipeline (2 commands), 1 IO redirect, and cannot background a pipeline.\n");
         }
 
         clearBuffer(stringList);
@@ -187,6 +187,7 @@ void processUserInput(void * args)
     //send(thr_data[threadID].psd, "\n#", 3, 0 );
     
     if (commandStatus >= 0)
+        //usleep(10);
         send(thr_data[ephThreadsIndex].psd, "\n#", 3, 0 );
 
     return;

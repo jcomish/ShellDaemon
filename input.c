@@ -162,7 +162,6 @@ char ** splitInput(char *input, bool ISDEBUG)
 //             In other words | and & are mutually exclusive.
 bool validateStringAmnt(char ** strings)
 {
-    int amnt = 0;
     int i;
     int pipeAmnt = 0;
     int inputAmnt = 0;
@@ -171,7 +170,6 @@ bool validateStringAmnt(char ** strings)
     
     for (i = 0; strings[i] != '\0'; i++)
     {
-        amnt++;
         int j;
         for (j = 0; strings[i][j] != '\0'; j++)
         {
@@ -288,7 +286,6 @@ bool isToken(char command)
 
 int countArgs(char **args)
 {
-    printf("test\n");
     int argCount;
     for (argCount = 0; args[argCount] != '\0'; argCount++){ continue; }
     

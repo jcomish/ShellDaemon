@@ -1,12 +1,12 @@
 total 15472
-drwxrwxr-x 4 parallels parallels     4096 Oct 14 00:34 .
+drwxrwxr-x 4 parallels parallels     4096 Oct 14 02:48 .
 drwxrwxr-x 8 parallels parallels     4096 Oct 13 13:22 ..
 -rwxrwxrwx 1 parallels parallels        7 Sep 14 17:02 command.txt
 -rwxrwxrwx 1 parallels parallels      424 Sep 30 01:22 copy.txt
 -rw------- 1 parallels parallels 15630336 Oct 12 02:15 core
 -rwxrwxrwx 1 parallels parallels       15 Sep 10 08:40 echo.txt
-drwxrwxr-x 8 parallels parallels     4096 Oct 14 00:05 .git
--rwxrwxr-x 1 parallels parallels     9435 Oct  9 15:39 input.c
+drwxrwxr-x 8 parallels parallels     4096 Oct 14 00:44 .git
+-rwxrwxr-x 1 parallels parallels     9379 Oct 14 02:42 input.c
 -rwxrwxr-x 1 parallels parallels      941 Oct  8 17:13 input.h
 -rw-rw-r-- 1 parallels parallels     3861 Oct 12 20:49 logger.c
 -rw-rw-r-- 1 parallels parallels      217 Oct 12 00:17 logger.h
@@ -15,12 +15,12 @@ drwxrwxr-x 8 parallels parallels     4096 Oct 14 00:05 .git
 -rwxrwxrwx 1 parallels parallels      309 Oct  9 02:38 Makefile
 drwxrwxrwx 3 parallels parallels     4096 Sep 15 16:24 nbproject
 -rwxrwxrwx 1 parallels parallels     3619 Sep 16 23:13 oldYash.c
--rwxrwxr-x 1 parallels parallels    18231 Oct 14 00:27 process.c
+-rwxrwxr-x 1 parallels parallels    18227 Oct 14 02:36 process.c
 -rwxrwxr-x 1 parallels parallels      372 Oct 14 00:25 process.h
 -rw-rw-r-- 1 parallels parallels      185 Oct 13 23:07 test1.txt
 -rw-rw-r-- 1 parallels parallels        0 Oct 13 23:07 test2.txt
--rw-rw-r-- 1 parallels parallels        0 Oct 14 00:35 test.txt
--rwxrwxr-x 1 parallels parallels    26984 Oct 14 00:34 yash
--rw-rw-r-- 1 parallels parallels     2998 Oct 13 04:16 yash.c
--rwxrwxr-x 1 parallels parallels    54568 Oct 14 00:34 yashd
--rw-rw-r-- 1 parallels parallels    12773 Oct 14 00:33 yashd.c
+-rw-rw---- 1 parallels parallels        0 Oct 14 02:48 test.txt
+-rwxrwxr-x 1 parallels parallels    26968 Oct 14 02:48 yash
+-rw-rw-r-- 1 parallels parallels     3159 Oct 14 02:48 yash.c
+-rwxrwxr-x 1 parallels parallels    54588 Oct 14 02:48 yashd
+-rw-rw-r-- 1 parallels parallels    12795 Oct 14 02:38 yashd.c

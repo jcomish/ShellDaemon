@@ -100,31 +100,31 @@ int main(int argc, char **argv){
 
     while(!feof(stdin))	
     {
-        char * cont;
         bool cont2 = true;
+        bool displayNewLine = false;
         do 
         {
             clearBuffer(buf);
             recv(sd,buf,sizeof(sizeof(buf)), 0);
             if (strstr(buf, "\n#") != NULL)
             {
-                printf("\n# ");
+                if (displayNewLine)
+                    printf("\n");
+                printf("# ");
                 cont2 = false;
             }
                 
             else
+            {
                 printf("%s", buf);
+                displayNewLine = true;
+                if (buf[strlen(buf) - 1] == '\n')
+                    displayNewLine = false;
+            }
                     
             fflush(stdout);
         } while (cont2);
-        
-/*
-        if(strstr(buf, "\n#") != NULL) {
-strcmp(buf, "\n#") != 0
-        }
-*/
-
-        
+               
         fgets(userInput, 250, stdin);
         //need this to immediately terminate
         if (feof(stdin)){ 

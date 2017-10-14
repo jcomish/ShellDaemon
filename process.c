@@ -23,7 +23,7 @@ typedef struct Job {
     int pgid;
     int jobNo;
     char ground;
-    char *status;
+    char * status;
     char command[250];
     //bool is
 } Job;
@@ -244,7 +244,7 @@ void writeToJobTable(char * userInput, int pgid, int pid, bool fg){
     }
 
     //REQUIREMENT: a “Stopped” or “Running” indicating the status of the process
-    processJobTable[jobNo].status = malloc(sizeof(char));
+    processJobTable[jobNo].status = malloc(15 * sizeof(char));
     processJobTable[jobNo].status = "Running";
     //REQUIREMENT: and finally the original command
     strcpy(processJobTable[jobNo].command, userInput);
@@ -312,7 +312,7 @@ bool isShellProcess(char ***commands){
         if (processJobTable[jobIndex].ground == '+')
         {
             printf("ERROR: Cannot bring a process to the forground that is already there.\n");
-            commandStatus = 0;
+            commandStatus = -2;
             return true;
         }
     }
@@ -339,13 +339,13 @@ bool isShellProcess(char ***commands){
         processJobTable[jobIndex].status = "Running";
         printJob(processJobTable[jobIndex], 1);
         
-        processJobTable[jobIndex].status = "Done";
+       
         
         status = 0;
         
         setupSignals();
-        pid = waitpid(jobPid, &status, WUNTRACED | WCONTINUED);
-        
+        pid = waitpid(jobPid, &status, WUNTRACED);
+        processJobTable[jobIndex].status = "Done";
         signalHandler(jobPid);
         if (pid == -1) 
         {
@@ -365,7 +365,7 @@ bool isShellProcess(char ***commands){
         {
             char *jobIndexChar = commands[0][0];
             memmove(commands[0][0], commands[0][0] + 1, strlen(commands[0][0]));
-            jobIndex = atoi(jobIndexChar);
+            //jobIndex = atoi(jobIndexChar);
             jobPid = processJobTable[jobIndex].pid;
         }
         else if (countArgs(commands[0]) == 2)
@@ -482,6 +482,7 @@ int processCommands(pid_t shell_pgid_temp, int socket, struct process_vars * pro
     int * pJobSize = process_vars_ptr->jobSize;
     char * userInput = process_vars_ptr->userInput;
     struct Job * jobTable = process_vars_ptr->processJobTable;
+
     
     
     if (signal(SIGINT, SIG_DFL) == SIG_ERR)
