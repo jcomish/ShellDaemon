@@ -469,12 +469,21 @@ void initDaemon()
 }
 
 int main(int argc, char** argv) {
-
+    bool ISDEBUG = false;
+    if (argc > 1)
+    {
+        if (strcmp(argv[1], "-d") == 0 )
+        {
+            ISDEBUG = true;
+        }
+    }
+    
     printf("Starting yashd...\n");
-
+    if (!ISDEBUG)
+    {
         initDaemon();
-
-    //listenLoop();
+    }
+    listenLoop();
     
     return 0;
 }
